@@ -70,48 +70,49 @@ CONTOUR/EDGE FINDING
 
 
 '''
-imgpath = "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_1.jpg"
-img = cv2.imread(imgpath)
-img = cv2.resize(img, (600,600))
-#print type(img)
-#img = img.astype(np.uint8)
-img2 = img.astype(np.uint8)
-#print "\n"
-#print img
+def contour():
+    imgpath = "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_1.jpg"
+    img = cv2.imread(imgpath)
+    img = cv2.resize(img, (600,600))
+    #print type(img)
+    #img = img.astype(np.uint8)
+    img2 = img.astype(np.uint8)
+    #print "\n"
+    #print img
 
-#edge detection makes image a binary image from a colored image
-#edges = cv2.Canny(img, 100, 200)
-#get rid of uncolored pixels
-#edges = cv2.bitwise_and(edges, colorThresh(img))
-edges = colorThresh(img)
+    #edge detection makes image a binary image from a colored image
+    #edges = cv2.Canny(img, 100, 200)
+    #get rid of uncolored pixels
+    #edges = cv2.bitwise_and(edges, colorThresh(img))
+    edges = colorThresh(img)
 
-_, contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    _, contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
-biggest = contours[0]
-for contour in contours:
-    if cv2.contourArea(contour) > cv2.contourArea(biggest):
-        #print contour
-        biggest = contour
-        print cv2.contourArea(contour) 
-
-
-#draw contours on img2, draw all of the contours in blue, with thickness 1
-cv2.drawContours(img2,contours, -1, (255, 0, 0), 1)
-cv2.drawContours(img2,[biggest], -1, (0, 255, 0), 1)
+    biggest = contours[0]
+    for contour in contours:
+        if cv2.contourArea(contour) > cv2.contourArea(biggest):
+            #print contour
+            biggest = contour
+            print cv2.contourArea(contour) 
 
 
+    #draw contours on img2, draw all of the contours in blue, with thickness 1
+    cv2.drawContours(img2,contours, -1, (255, 0, 0), 1)
+    cv2.drawContours(img2,[biggest], -1, (0, 255, 0), 1)
 
-cv2.namedWindow("image")
-cv2.moveWindow("image", 0,0)
-cv2.imshow("image", edges)
-cv2.resizeWindow("image", 600, 600)
 
-cv2.namedWindow("image2")
-cv2.moveWindow("image2", 600,0)
-cv2.imshow("image2",img2)
-cv2.resizeWindow("image2", 600,600)
 
-cv2.waitKey(0)
+    cv2.namedWindow("image")
+    cv2.moveWindow("image", 0,0)
+    cv2.imshow("image", edges)
+    cv2.resizeWindow("image", 600, 600)
+
+    cv2.namedWindow("image2")
+    cv2.moveWindow("image2", 600,0)
+    cv2.imshow("image2",img2)
+    cv2.resizeWindow("image2", 600,600)
+
+    cv2.waitKey(0)
 '''
 
 
@@ -213,23 +214,50 @@ def orbTest():
 HISTOGRAM EXPERIMENTS
 
 
-
+http://www.pyimagesearch.com/2014/07/14/3-ways-compare-histograms-using-opencv-python/
 '''
+def getHist(img, num_bins=64):
+    r_bins = cv2.calcHist([img], [2], None, [num_bins], [0, 256]) 
+    g_bins = cv2.calcHist([img], [1], None, [num_bins], [0, 256])
+    b_bins = cv2.calcHist([img], [0], None, [num_bins], [0, 256])
+    #return RGB values in that order
+    return (r_bins, g_bins, b_bins)
+
+def plotHist(hist_tuple, name):
+    ylim = 100000
+
+    plt.subplot(3, 2, 1)
+    plt.title(name)
+
+    #assume that tuple is in RGB format
+    plt.plot(hist_tuple[0], 'r')
+    plt.plot(hist_tuple[1], 'g')
+    plt.plot(hist_tuple[2], 'b')
+
+    plt.ylim([0, ylim])
+    plt.xlim([0, 64])
+
+def compareHist(hist_tuple1, hist_tuple2):
+
+    #3rd parameter is an INT
+
+    r_diff = cv2.compareHist(hist_tuple1[0], hist_tuple2[0], 1)
+    g_diff = cv2.compareHist(hist_tuple1[1], hist_tuple2[1], 1)
+    b_diff = cv2.compareHist(hist_tuple1[2], hist_tuple2[2], 1)
+
+    return (r_diff, g_diff, b_diff)
+
 def histogram():
     imgpaths = ["/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/1.jpg", "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/2.jpg", "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/3.jpg", "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/4.jpg", "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/5.jpg"]
     scene1 = cv2.imread(imgpaths[0])
     scene2 = cv2.imread(imgpaths[1])
     scene3 = cv2.imread(imgpaths[4])
 
-    def getHist(img, num_bins=64):
-        r_bins = cv2.calcHist([img], [2], None, [num_bins], [0, 256]) 
-        g_bins = cv2.calcHist([img], [1], None, [num_bins], [0, 256])
-        b_bins = cv2.calcHist([img], [0], None, [num_bins], [0, 256])
-        return (r_bins, g_bins, b_bins)
-
     r1, g1, b1 = getHist(scene1)
     r2, g2, b2 = getHist(scene2)
     r3, g3, b3 = getHist(scene3)
+
+    print type(r1)
 
     ylim = 1000000
 
@@ -260,9 +288,18 @@ def histogram():
     plt.show()
     cv2.waitKey(0)
 
+def histogram2():
+    scene = cv2.imread("/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_2.jpg")
+    diff_angle = cv2.imread("/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_6.jpg")
+    diff_scene = cv2.imread("/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_13.jpg")
 
+    scene_hist = getHist(scene)
+    print compareHist(scene_hist, scene_hist)
 
+    plotHist(scene_hist, "scene")
 
-#colorThresh(cv2.imread(imgpath))
+    plt.show()
+
+histogram2()
 
 cv2.destroyAllWindows()
