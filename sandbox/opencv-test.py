@@ -4,7 +4,114 @@ import cv2
 import math
 import matplotlib.pyplot as plt
 plt.rcParams['figure.figsize'] = (15.0, 13.0)
+'''
 
+UTILITY FUNCTIONS
+
+
+'''
+def displayImage(img, name, height=600.0, width=600.0):
+
+    #resize image
+    #r = height / img.shape[1]
+    #dim = (int(width), int(img.shape[0] * r))
+    #image = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
+
+    #show image in new named window
+    cv2.namedWindow(name)
+    cv2.moveWindow(name, 0,0)
+    cv2.imshow(name, img)
+    #cv2.resizeWindow(name, int(height), int(width))
+
+    return "True"
+minMax = {'maxR':0, 'maxG':0, 'maxB':0, 'minR':0, 'minG':0, 'minB':0}
+
+def colorDist(pix1, pix2):
+    return math.sqrt((pix2[0] - pix1[0])**2 + (pix2[1] - pix1[1])**2 + (pix2[2] - pix1[2])**2)
+
+def analyzeImage(img):
+    global minMax
+    winname = "analysis"
+
+    displayImage(img, winname)
+    minMax['maxR'] = 0
+    minMax['maxG'] = 0
+    minMax['maxB'] = 0
+    minMax['minR'] = 255
+    minMax['minG'] = 255
+    minMax['minB'] = 255
+
+    def onMouse(event, x, y, flags, param):
+        global maxR, maxG, maxB, minR, minG, minB     
+        # clicked the left button
+        if event==cv2.EVENT_LBUTTONDOWN: 
+            print "x, y are", x, y, "    ",
+            (b,g,r) = img[y,x]
+            if b > minMax['maxB']:
+                minMax['maxB'] = b
+            elif b < minMax['minB']:
+                minMax['minB'] = b
+            if g > minMax['maxG']:
+                minMax['maxG'] = g
+            elif g < minMax['minG']:
+                minMax['minG'] = g
+            if r > minMax['maxR']:
+                minMax['maxR'] = r
+            elif r < minMax['minR']:
+                minMax['minR'] = r
+            print "r,g,b is", int(r), int(g), int(b), "    ",
+            (h,s,v) = img[y,x]
+            print "h,s,v is", int(h), int(s), int(v)
+            down_coord = (x,y)
+
+    cv2.setMouseCallback(winname, onMouse, None)
+
+    cv2.waitKey(0)
+    print minMax
+
+    return True
+
+
+
+
+    '''
+    thresholds =  {'low_red':0, 'high_red':255,
+                       'low_green':0, 'high_green':255,
+                       'low_blue':0, 'high_blue':255,
+                       'low_hue':0, 'high_hue':255,
+                       'low_sat':0, 'high_sat':255,
+                       'low_val':0, 'high_val':255 }
+    def change_slider(name, new_threshold):
+        #change thresh
+        thresholds[name] = new_threshold
+
+
+    cv.createTrackbar('low_red', 'sliders%d' % 0, thresholds['low_red'], 255, 
+                          lambda x: change_slider('low_red', x) )
+    cv.createTrackbar('high_red', 'sliders%d' % 0, thresholds['high_red'], 255, 
+                          lambda x: change_slider('high_red', x) )
+    cv.createTrackbar('low_green', 'sliders%d' % 0, thresholds['low_green'], 255, 
+                          lambda x: change_slider('low_green', x) )
+    cv.createTrackbar('high_green', 'sliders%d' % 0, thresholds['high_green'], 255, 
+                          lambda x: change_slider('high_green', x) )
+    cv.createTrackbar('low_blue', 'sliders%d' % 0, thresholds['low_blue'], 255, 
+                          lambda x: change_slider('low_blue', x) )
+    cv.createTrackbar('high_blue', 'sliders%d' % 0, thresholds['high_blue'], 255, 
+                          lambda x: change_slider('high_blue', x) )
+    cv.createTrackbar('low_sat', 'sliders%d' % 0, thresholds['low_sat'], 255, 
+                          lambda x: change_slider('low_sat', x))
+    cv.createTrackbar('high_sat', 'sliders%d' % 0, thresholds['high_sat'], 255, 
+                          lambda x: change_slider('high_sat', x))
+    cv.createTrackbar('low_hue', 'sliders%d' % 0, thresholds['low_hue'], 255, 
+                          lambda x: change_slider('low_hue', x))
+    cv.createTrackbar('high_hue', 'sliders%d' % 0, thresholds['high_hue'], 255, 
+                          lambda x: change_slider('high_hue', x))
+    cv.createTrackbar('low_val', 'sliders%d' % 0, thresholds['low_val'], 255, 
+                          lambda x: change_slider('low_val', x))
+    cv.createTrackbar('high_val', 'sliders%d' % 0, thresholds['high_val'], 255, 
+                          lambda x: change_slider('high_val', x))
+
+    '''
 '''
 
 
@@ -24,7 +131,7 @@ def colorThresh(image):
 
     blue_thresh = 240
     red_thresh = 240
-    green_thresh = 240
+    green_thresh = 210
 
     max_val = 256
 
@@ -37,15 +144,35 @@ def colorThresh(image):
     colored = cv2.bitwise_or(colored, red)
 
     #find pixels that are black
-    blue = cv2.inRange(blue_channel, 0, max_val - blue_thresh)
-    red = cv2.inRange(red_channel, 0, max_val - red_thresh)
-    green = cv2.inRange(green_channel, 0, max_val - green_thresh)
+    blue = cv2.inRange(blue_channel, 0, 20)
+    red = cv2.inRange(red_channel, 0, 20)
+    green = cv2.inRange(green_channel, 0, 20)
 
     black = cv2.bitwise_and(blue, red)
     black = cv2.bitwise_and(black, green)
 
+    #find pixels that are in the floor
+    floor_blue_min = 29
+    floor_blue_max = 208
+    floor_red_min = 25
+    floor_red_max = 200
+    floor_green_min = 33
+    floor_green_max = 195
+
+    blue = cv2.inRange(blue_channel, floor_blue_min, floor_blue_max)
+    red = cv2.inRange(red_channel, floor_red_min, floor_red_max)
+    green = cv2.inRange(green_channel, floor_green_min, floor_green_max)
+
+    floor = cv2.bitwise_and(blue, red)
+    floor = cv2.bitwise_and(floor, green)
+
     #combine colored and black pixels into one 2D array
     combo = cv2.bitwise_or(colored, black)
+
+    #remove floor pixels
+    combo = cv2.bitwise_and(combo, cv2.bitwise_not(floor))
+
+    colored = cv2.bitwise_and(colored, cv2.bitwise_not(floor))
 
     #return colored pixels - IGNORING BLACK FOR NOW...
     return colored
@@ -102,15 +229,10 @@ def contour():
 
 
 
-    cv2.namedWindow("image")
-    cv2.moveWindow("image", 0,0)
-    cv2.imshow("image", edges)
-    cv2.resizeWindow("image", 600, 600)
+    displayImage(edges, "image")
 
-    cv2.namedWindow("image2")
-    cv2.moveWindow("image2", 600,0)
-    cv2.imshow("image2",img2)
-    cv2.resizeWindow("image2", 600,600)
+    displayImage(img2, "image2")
+    #cv2.resizeWindow("image2", 600,600)
 
     cv2.waitKey(0)
 '''
@@ -223,10 +345,13 @@ def getHist(img, num_bins=64):
     #return RGB values in that order
     return (r_bins, g_bins, b_bins)
 
-def plotHist(hist_tuple, name):
-    ylim = 100000
+def getHist3D(img, num_bins=64):
+    return cv2.calcHist([img], [0, 1, 2], None, [num_bins, num_bins, num_bins], [0, 256, 0, 256, 0, 256])
 
-    plt.subplot(3, 2, 1)
+def plotHist(hist_tuple, name):
+    ylim = 1000
+
+    plt.subplot(3, 3, 1)
     plt.title(name)
 
     #assume that tuple is in RGB format
@@ -293,13 +418,40 @@ def histogram2():
     diff_angle = cv2.imread("/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_6.jpg")
     diff_scene = cv2.imread("/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_13.jpg")
 
-    scene_hist = getHist(scene)
-    print compareHist(scene_hist, scene_hist)
+    scene_hist = getHist3D(scene)
+    scene2_hist = getHist3D(diff_angle)
+    scene3_hist = getHist3D(diff_scene)
+    for i in range(6):
+        print cv2.compareHist(scene_hist, scene_hist, i)
+        print cv2.compareHist(scene_hist, scene2_hist, i)
+        print cv2.compareHist(scene_hist, scene3_hist, i)
+        print "TEST NUM %d" % i
+
+    print "end test seq 1"
+
+    scene = cv2.imread("/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_17.jpg")
+    diff_angle = cv2.imread("/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_18.jpg")
+    diff_scene = cv2.imread("/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_13.jpg")
+
+    scene_hist = getHist3D(scene)
+    scene2_hist = getHist3D(diff_angle)
+    scene3_hist = getHist3D(diff_scene)
+    print cv2.compareHist(scene_hist, scene_hist, 1)
+    print cv2.compareHist(scene_hist, scene2_hist, 1)
+    print cv2.compareHist(scene_hist, scene3_hist, 1)
+
+    print cv2.compareHist(scene_hist, scene_hist, 0)
+    print cv2.compareHist(scene_hist, scene2_hist, 0)
+    print cv2.compareHist(scene_hist, scene3_hist, 0)
 
     plotHist(scene_hist, "scene")
 
-    plt.show()
+    #plt.show()
 
-histogram2()
+#histogram2()
+imgpath = "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_1.jpg"
+#img = cv2.imread(imgpath)
+#analyzeImage(img)
+contour()
 
 cv2.destroyAllWindows()
