@@ -113,6 +113,22 @@ def threshImage(image, thresholds):
     threshed_image = cv2.multiply(threshed_image, val_threshed, threshed_image)
     return threshed_image
 
+#returns [-1] if there is no object
+#returns a list of ints where each int represents a color
+def coloredObjectTest(img, thresholds=False):
+    if (not thresholds):
+        thresholds =  {'low_red':0, 'high_red':255,
+                           'low_green':0, 'high_green':255,
+                           'low_blue':0, 'high_blue':255,
+                           'low_hue':0, 'high_hue':255,
+                           'low_sat':119, 'high_sat':255,
+                           'low_val':114, 'high_val':255 }
+    threshed_img = threshImage(img, thresholds)
+    non_zero = cv2.countNonZero(threshed_img)
+    print non_zero
+    num_pixels_required = 2000
+    return non_zero > num_pixels_required
+
 '''
 
 UTILITY FUNCTIONS
@@ -195,7 +211,13 @@ def analyzeImage(img):
     def change_slider(name, new_threshold, thresholds, img, winname):
         #change thresh
         thresholds[name] = new_threshold
-        displayImage(threshImage(img, thresholds), winname)
+        
+        #get threshed image and display it
+        threshed = threshImage(img, thresholds)
+        displayImage(threshed, winname)
+
+        #print the result of object test
+        coloredObjectTest(img, thresholds)
 
 
     '''
@@ -503,22 +525,42 @@ def histogram2():
     #plt.show()
 
 #histogram2()
-imgpath = "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_013.jpg"
-img = cv2.imread(imgpath)
-img2 = cv2.imread("/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_010.jpg")
-img3 = cv2.imread("/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_013.jpg")
-img4 = cv2.imread("/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_13.jpg")
+imgpath = "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/"
+img = cv2.imread(imgpath + "img_1.jpg")
+img2 = cv2.imread(imgpath + "img_2.jpg")
+img3 = cv2.imread(imgpath + "img_3.jpg")
+img4 = cv2.imread(imgpath + "img_03.jpg")
+img5 = cv2.imread(imgpath + "img_5.jpg")
+img6 = cv2.imread(imgpath + "img_4.jpg")
+img7 = cv2.imread(imgpath + "img_05.jpg")
+img8 = cv2.imread(imgpath + "img_7.jpg")
+img9 = cv2.imread(imgpath + "img_07.jpg")
+img10 = cv2.imread(imgpath + "img_8.jpg")
+img11 = cv2.imread(imgpath + "img_08.jpg")
+img12 = cv2.imread(imgpath + "img_9.jpg")
+img13 = cv2.imread(imgpath + "img_10.jpg")
+img14 = cv2.imread(imgpath + "img_8.jpg")
+img15 = cv2.imread(imgpath + "img_8.jpg")
+img16 = cv2.imread(imgpath + "img_8.jpg")
+img17 = cv2.imread(imgpath + "img_8.jpg")
+img18 = cv2.imread(imgpath + "img_8.jpg")
+img19 = cv2.imread(imgpath + "img_39.jpg")
+img20 = cv2.imread(imgpath + "img_012.jpg")
+img21 = cv2.imread(imgpath + "img_26.jpg")
+images_with_color = [img, img2, img3, img4, img5, img6, img7, img8, img9, img10, img11, img12, img13]
+images_without_color = [img19, img20, img21]
+
 assert(img.any())
-for x in [img, img2, img3, img4]:
-    analyzeImage(x)
+
+for i, x in enumerate(images_with_color):
+    #analyzeImage(x)
+    print i
+    assert(coloredObjectTest(x))
+
+for x in images_without_color:
+    #analyzeImage(x)
+    assert(not coloredObjectTest(x))
 #contour()
 
+#analyzeImage(img2)
 cv2.destroyAllWindows()
-
-'''
-low_sat = 188
-high_sat = 255
-low_val = 77
-high_val = 255
-
-'''
