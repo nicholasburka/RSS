@@ -4,114 +4,7 @@ import cv2
 import math
 import matplotlib.pyplot as plt
 plt.rcParams['figure.figsize'] = (15.0, 13.0)
-'''
-
-UTILITY FUNCTIONS
-
-
-'''
-def displayImage(img, name, height=600.0, width=600.0):
-
-    #resize image
-    #r = height / img.shape[1]
-    #dim = (int(width), int(img.shape[0] * r))
-    #image = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
-
-    #show image in new named window
-    cv2.namedWindow(name)
-    cv2.moveWindow(name, 0,0)
-    cv2.imshow(name, img)
-    #cv2.resizeWindow(name, int(height), int(width))
-
-    return "True"
-minMax = {'maxR':0, 'maxG':0, 'maxB':0, 'minR':0, 'minG':0, 'minB':0}
-
-def colorDist(pix1, pix2):
-    return math.sqrt((pix2[0] - pix1[0])**2 + (pix2[1] - pix1[1])**2 + (pix2[2] - pix1[2])**2)
-
-def analyzeImage(img):
-    global minMax
-    winname = "analysis"
-
-    displayImage(img, winname)
-    minMax['maxR'] = 0
-    minMax['maxG'] = 0
-    minMax['maxB'] = 0
-    minMax['minR'] = 255
-    minMax['minG'] = 255
-    minMax['minB'] = 255
-
-    def onMouse(event, x, y, flags, param):
-        global maxR, maxG, maxB, minR, minG, minB     
-        # clicked the left button
-        if event==cv2.EVENT_LBUTTONDOWN: 
-            print "x, y are", x, y, "    ",
-            (b,g,r) = img[y,x]
-            if b > minMax['maxB']:
-                minMax['maxB'] = b
-            elif b < minMax['minB']:
-                minMax['minB'] = b
-            if g > minMax['maxG']:
-                minMax['maxG'] = g
-            elif g < minMax['minG']:
-                minMax['minG'] = g
-            if r > minMax['maxR']:
-                minMax['maxR'] = r
-            elif r < minMax['minR']:
-                minMax['minR'] = r
-            print "r,g,b is", int(r), int(g), int(b), "    ",
-            (h,s,v) = img[y,x]
-            print "h,s,v is", int(h), int(s), int(v)
-            down_coord = (x,y)
-
-    cv2.setMouseCallback(winname, onMouse, None)
-
-    cv2.waitKey(0)
-    print minMax
-
-    return True
-
-
-
-
-    '''
-    thresholds =  {'low_red':0, 'high_red':255,
-                       'low_green':0, 'high_green':255,
-                       'low_blue':0, 'high_blue':255,
-                       'low_hue':0, 'high_hue':255,
-                       'low_sat':0, 'high_sat':255,
-                       'low_val':0, 'high_val':255 }
-    def change_slider(name, new_threshold):
-        #change thresh
-        thresholds[name] = new_threshold
-
-
-    cv.createTrackbar('low_red', 'sliders%d' % 0, thresholds['low_red'], 255, 
-                          lambda x: change_slider('low_red', x) )
-    cv.createTrackbar('high_red', 'sliders%d' % 0, thresholds['high_red'], 255, 
-                          lambda x: change_slider('high_red', x) )
-    cv.createTrackbar('low_green', 'sliders%d' % 0, thresholds['low_green'], 255, 
-                          lambda x: change_slider('low_green', x) )
-    cv.createTrackbar('high_green', 'sliders%d' % 0, thresholds['high_green'], 255, 
-                          lambda x: change_slider('high_green', x) )
-    cv.createTrackbar('low_blue', 'sliders%d' % 0, thresholds['low_blue'], 255, 
-                          lambda x: change_slider('low_blue', x) )
-    cv.createTrackbar('high_blue', 'sliders%d' % 0, thresholds['high_blue'], 255, 
-                          lambda x: change_slider('high_blue', x) )
-    cv.createTrackbar('low_sat', 'sliders%d' % 0, thresholds['low_sat'], 255, 
-                          lambda x: change_slider('low_sat', x))
-    cv.createTrackbar('high_sat', 'sliders%d' % 0, thresholds['high_sat'], 255, 
-                          lambda x: change_slider('high_sat', x))
-    cv.createTrackbar('low_hue', 'sliders%d' % 0, thresholds['low_hue'], 255, 
-                          lambda x: change_slider('low_hue', x))
-    cv.createTrackbar('high_hue', 'sliders%d' % 0, thresholds['high_hue'], 255, 
-                          lambda x: change_slider('high_hue', x))
-    cv.createTrackbar('low_val', 'sliders%d' % 0, thresholds['low_val'], 255, 
-                          lambda x: change_slider('low_val', x))
-    cv.createTrackbar('high_val', 'sliders%d' % 0, thresholds['high_val'], 255, 
-                          lambda x: change_slider('high_val', x))
-
-    '''
+    
 '''
 
 
@@ -177,6 +70,164 @@ def colorThresh(image):
     #return colored pixels - IGNORING BLACK FOR NOW...
     return colored
 
+def threshImage(image, thresholds):
+    # image.shape[2] gives the number of channels
+    # Use OpenCV to split the image up into channels, saving them in gray images
+    BGRchannels = cv2.split(image)
+
+    blue = BGRchannels[0]
+    green = BGRchannels[1]
+    red = BGRchannels[2]
+
+    # This line creates a hue-saturation-value image
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+    HSVchannels = cv2.split(hsv)
+
+    hue = HSVchannels[0]
+    sat = HSVchannels[1]
+    val = HSVchannels[2]
+
+    #suppress "assigned before reference" error
+    red_threshed = 1
+    blue_threshed = 1
+    green_threshed = 1
+    hue_threshed = 1
+    sat_threshed = 1
+    val_threshed = 1
+    threshed_image = 1
+
+    # Here is how OpenCV thresholds the images based on the slider values:
+    red_threshed = cv2.inRange(red, thresholds["low_red"], thresholds["high_red"], red_threshed)
+    blue_threshed = cv2.inRange(blue, thresholds["low_blue"], thresholds["high_blue"], blue_threshed)
+    green_threshed = cv2.inRange(green, thresholds["low_green"], thresholds["high_green"], green_threshed)
+    hue_threshed = cv2.inRange(hue, thresholds["low_hue"], thresholds["high_hue"], hue_threshed)
+    sat_threshed = cv2.inRange(sat, thresholds["low_sat"], thresholds["high_sat"], sat_threshed)
+    val_threshed = cv2.inRange(val, thresholds["low_val"], thresholds["high_val"], val_threshed)
+
+    # Multiply all the thresholded images into one "output" image, threshed_images
+    threshed_image = cv2.multiply(red_threshed, green_threshed, threshed_image)
+    threshed_image = cv2.multiply(threshed_image, blue_threshed, threshed_image)
+    threshed_image = cv2.multiply(threshed_image, hue_threshed, threshed_image)
+    threshed_image = cv2.multiply(threshed_image, sat_threshed, threshed_image)
+    threshed_image = cv2.multiply(threshed_image, val_threshed, threshed_image)
+    return threshed_image
+
+'''
+
+UTILITY FUNCTIONS
+
+
+'''
+def displayImage(img, name, height=600.0, width=600.0):
+
+    #resize image
+    #r = height / img.shape[1]
+    #dim = (int(width), int(img.shape[0] * r))
+    #image = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
+
+    #show image in new named window
+    cv2.namedWindow(name)
+    cv2.moveWindow(name, 0,0)
+    cv2.imshow(name, img)
+    #cv2.resizeWindow(name, int(height), int(width))
+
+    return "True"
+
+
+def colorDist(pix1, pix2):
+    return math.sqrt((pix2[0] - pix1[0])**2 + (pix2[1] - pix1[1])**2 + (pix2[2] - pix1[2])**2)
+
+minMax = {'maxR':0, 'maxG':0, 'maxB':0, 'minR':0, 'minG':0, 'minB':0}
+def analyzeImage(img):
+    global minMax
+    winname = "analysis"
+
+    displayImage(img, winname)
+    minMax['maxR'] = 0
+    minMax['maxG'] = 0
+    minMax['maxB'] = 0
+    minMax['minR'] = 255
+    minMax['minG'] = 255
+    minMax['minB'] = 255
+
+    def onMouse(event, x, y, flags, param):
+        global maxR, maxG, maxB, minR, minG, minB     
+        # clicked the left button
+        if event==cv2.EVENT_LBUTTONDOWN: 
+            print "x, y are", x, y, "    ",
+            (b,g,r) = img[y,x]
+            if b > minMax['maxB']:
+                minMax['maxB'] = b
+            elif b < minMax['minB']:
+                minMax['minB'] = b
+            if g > minMax['maxG']:
+                minMax['maxG'] = g
+            elif g < minMax['minG']:
+                minMax['minG'] = g
+            if r > minMax['maxR']:
+                minMax['maxR'] = r
+            elif r < minMax['minR']:
+                minMax['minR'] = r
+            print "r,g,b is", int(r), int(g), int(b), "    ",
+            (h,s,v) = img[y,x]
+            print "h,s,v is", int(h), int(s), int(v)
+            down_coord = (x,y)
+
+    cv2.setMouseCallback(winname, onMouse, None)
+    '''
+    cv2.waitKey(0)
+    print minMax
+
+    return True
+    '''
+
+
+
+    
+    thresholds =  {'low_red':0, 'high_red':255,
+                       'low_green':0, 'high_green':255,
+                       'low_blue':0, 'high_blue':255,
+                       'low_hue':0, 'high_hue':255,
+                       'low_sat':0, 'high_sat':255,
+                       'low_val':0, 'high_val':255 }
+
+    def change_slider(name, new_threshold, thresholds, img, winname):
+        #change thresh
+        thresholds[name] = new_threshold
+        displayImage(threshImage(img, thresholds), winname)
+
+
+    '''
+    cv2.createTrackbar('low_red', winname, thresholds['low_red'], 255, 
+                          lambda x: change_slider('low_red', x, thresholds, img, winname))
+    cv2.createTrackbar('high_red', winname, thresholds['high_red'], 255, 
+                          lambda x: change_slider('high_red', x, thresholds, img, winname))
+    cv2.createTrackbar('low_green', winname, thresholds['low_green'], 255, 
+                          lambda x: change_slider('low_green', x, thresholds, img, winname))
+    cv2.createTrackbar('high_green', winname, thresholds['high_green'], 255, 
+                          lambda x: change_slider('high_green', x, thresholds, img, winname))
+    cv2.createTrackbar('low_blue', winname, thresholds['low_blue'], 255, 
+                          lambda x: change_slider('low_blue', x, thresholds, img, winname))
+    cv2.createTrackbar('high_blue', winname, thresholds['high_blue'], 255, 
+                          lambda x: change_slider('high_blue', x, thresholds, img, winname))
+    '''
+    cv2.createTrackbar('low_hue', winname, thresholds['low_hue'], 255, 
+                          lambda x: change_slider('low_hue', x, thresholds, img, winname))
+    cv2.createTrackbar('high_hue', winname, thresholds['high_hue'], 255, 
+                          lambda x: change_slider('high_hue', x, thresholds, img, winname))
+    cv2.createTrackbar('low_sat', winname, thresholds['low_sat'], 255, 
+                          lambda x: change_slider('low_sat', x, thresholds, img, winname))
+    cv2.createTrackbar('high_sat', winname, thresholds['high_sat'], 255, 
+                          lambda x: change_slider('high_sat', x, thresholds, img, winname))
+    cv2.createTrackbar('low_val', winname, thresholds['low_val'], 255, 
+                          lambda x: change_slider('low_val', x, thresholds, img, winname))
+    cv2.createTrackbar('high_val', winname, thresholds['high_val'], 255, 
+                          lambda x: change_slider('high_val', x, thresholds, img, winname))
+
+    cv2.waitKey(0)
+    print thresholds
+
 
 '''
 
@@ -198,7 +249,7 @@ CONTOUR/EDGE FINDING
 
 '''
 def contour():
-    imgpath = "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_1.jpg"
+    imgpath = "/afs/inf.eac.uk/user/s15/s1579555/rss/img/img_1.jpg"
     img = cv2.imread(imgpath)
     img = cv2.resize(img, (600,600))
     #print type(img)
@@ -244,9 +295,9 @@ ORB TEST
 
 '''
 def orbTest():
-    res_path = "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/watching.png"
+    res_path = "/afs/inf.eac.uk/user/s15/s1579555/rss/img/watching.png"
     resource = cv2.imread(res_path)
-    scene_path = "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/5.jpg"
+    scene_path = "/afs/inf.eac.uk/user/s15/s1579555/rss/img/5.jpg"
     scene = cv2.imread(scene_path)
 
     # Create ORB feature detector object
@@ -348,6 +399,9 @@ def getHist(img, num_bins=64):
 def getHist3D(img, num_bins=64):
     return cv2.calcHist([img], [0, 1, 2], None, [num_bins, num_bins, num_bins], [0, 256, 0, 256, 0, 256])
 
+def calculateLocalizationHists():
+    blue = cv2.imread("/afs/inf.eac.uk/user/s15/s1579555/rss/img/1.jpg")
+
 def plotHist(hist_tuple, name):
     ylim = 1000
 
@@ -373,7 +427,7 @@ def compareHist(hist_tuple1, hist_tuple2):
     return (r_diff, g_diff, b_diff)
 
 def histogram():
-    imgpaths = ["/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/1.jpg", "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/2.jpg", "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/3.jpg", "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/4.jpg", "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/5.jpg"]
+    imgpaths = ["/afs/inf.eac.uk/user/s15/s1579555/rss/img/1.jpg", "/afs/inf.eac.uk/user/s15/s1579555/rss/img/2.jpg", "/afs/inf.eac.uk/user/s15/s1579555/rss/img/3.jpg", "/afs/inf.eac.uk/user/s15/s1579555/rss/img/4.jpg", "/afs/inf.eac.uk/user/s15/s1579555/rss/img/5.jpg"]
     scene1 = cv2.imread(imgpaths[0])
     scene2 = cv2.imread(imgpaths[1])
     scene3 = cv2.imread(imgpaths[4])
@@ -414,9 +468,9 @@ def histogram():
     cv2.waitKey(0)
 
 def histogram2():
-    scene = cv2.imread("/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_2.jpg")
-    diff_angle = cv2.imread("/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_6.jpg")
-    diff_scene = cv2.imread("/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_13.jpg")
+    scene = cv2.imread("/afs/inf.eac.uk/user/s15/s1579555/rss/img/img_2.jpg")
+    diff_angle = cv2.imread("/afs/inf.eac.uk/user/s15/s1579555/rss/img/img_6.jpg")
+    diff_scene = cv2.imread("/afs/inf.eac.uk/user/s15/s1579555/rss/img/img_13.jpg")
 
     scene_hist = getHist3D(scene)
     scene2_hist = getHist3D(diff_angle)
@@ -429,9 +483,9 @@ def histogram2():
 
     print "end test seq 1"
 
-    scene = cv2.imread("/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_17.jpg")
-    diff_angle = cv2.imread("/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_18.jpg")
-    diff_scene = cv2.imread("/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_13.jpg")
+    scene = cv2.imread("/afs/inf.eac.uk/user/s15/s1579555/rss/img/img_17.jpg")
+    diff_angle = cv2.imread("/afs/inf.eac.uk/user/s15/s1579555/rss/img/img_18.jpg")
+    diff_scene = cv2.imread("/afs/inf.eac.uk/user/s15/s1579555/rss/img/img_13.jpg")
 
     scene_hist = getHist3D(scene)
     scene2_hist = getHist3D(diff_angle)
@@ -449,9 +503,22 @@ def histogram2():
     #plt.show()
 
 #histogram2()
-imgpath = "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_1.jpg"
-#img = cv2.imread(imgpath)
-#analyzeImage(img)
-contour()
+imgpath = "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_013.jpg"
+img = cv2.imread(imgpath)
+img2 = cv2.imread("/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_010.jpg")
+img3 = cv2.imread("/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_013.jpg")
+img4 = cv2.imread("/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/img_13.jpg")
+assert(img.any())
+for x in [img, img2, img3, img4]:
+    analyzeImage(x)
+#contour()
 
 cv2.destroyAllWindows()
+
+'''
+low_sat = 188
+high_sat = 255
+low_val = 77
+high_val = 255
+
+'''
