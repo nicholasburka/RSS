@@ -541,26 +541,28 @@ img12 = cv2.imread(imgpath + "img_9.jpg")
 img13 = cv2.imread(imgpath + "img_10.jpg")
 img14 = cv2.imread(imgpath + "img_8.jpg")
 img15 = cv2.imread(imgpath + "img_8.jpg")
-img16 = cv2.imread(imgpath + "img_8.jpg")
-img17 = cv2.imread(imgpath + "img_8.jpg")
-img18 = cv2.imread(imgpath + "img_8.jpg")
+img16 = cv2.imread(imgpath + "img_25.jpg")
+img17 = cv2.imread(imgpath + "img_42.jpg")
+img18 = cv2.imread(imgpath + "img_41.jpg")
 img19 = cv2.imread(imgpath + "img_39.jpg")
 img20 = cv2.imread(imgpath + "img_012.jpg")
 img21 = cv2.imread(imgpath + "img_26.jpg")
 images_with_color = [img, img2, img3, img4, img5, img6, img7, img8, img9, img10, img11, img12, img13]
-images_without_color = [img19, img20, img21]
+images_without_color = [img16, img17, img18, img19, img20, img21]
 
 assert(img.any())
 
+print "Testing True cases for coloredObjectTest()"
 for i, x in enumerate(images_with_color):
     #analyzeImage(x)
     print i
     assert(coloredObjectTest(x))
 
-for x in images_without_color:
+print "Testing False cases for coloredObjectTest()"
+for i, x in enumerate(images_without_color):
     #analyzeImage(x)
+    print i
     assert(not coloredObjectTest(x))
-#contour()
 
-#analyzeImage(img2)
+#contour()
 cv2.destroyAllWindows()
