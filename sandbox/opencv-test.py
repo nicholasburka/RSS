@@ -3,6 +3,7 @@ import numpy as np
 import cv2
 import math
 import matplotlib.pyplot as plt
+import os
 plt.rcParams['figure.figsize'] = (15.0, 13.0)
     
 '''
@@ -74,6 +75,7 @@ def threshImage(image, thresholds):
     # image.shape[2] gives the number of channels
     # Use OpenCV to split the image up into channels, saving them in gray images
     BGRchannels = cv2.split(image)
+    #print BGRchannels
 
     blue = BGRchannels[0]
     green = BGRchannels[1]
@@ -88,7 +90,7 @@ def threshImage(image, thresholds):
     sat = HSVchannels[1]
     val = HSVchannels[2]
 
-    #suppress "assigned before reference" error
+    # suppress "assigned before reference" error
     red_threshed = 1
     blue_threshed = 1
     green_threshed = 1
@@ -97,13 +99,16 @@ def threshImage(image, thresholds):
     val_threshed = 1
     threshed_image = 1
 
-    # Here is how OpenCV thresholds the images based on the slider values:
+    # Threshold the image based on threshold dictionary values
     red_threshed = cv2.inRange(red, thresholds["low_red"], thresholds["high_red"], red_threshed)
     blue_threshed = cv2.inRange(blue, thresholds["low_blue"], thresholds["high_blue"], blue_threshed)
     green_threshed = cv2.inRange(green, thresholds["low_green"], thresholds["high_green"], green_threshed)
     hue_threshed = cv2.inRange(hue, thresholds["low_hue"], thresholds["high_hue"], hue_threshed)
     sat_threshed = cv2.inRange(sat, thresholds["low_sat"], thresholds["high_sat"], sat_threshed)
     val_threshed = cv2.inRange(val, thresholds["low_val"], thresholds["high_val"], val_threshed)
+
+    # Find the different color bands
+
 
     # Multiply all the thresholded images into one "output" image, threshed_images
     threshed_image = cv2.multiply(red_threshed, green_threshed, threshed_image)
@@ -113,9 +118,10 @@ def threshImage(image, thresholds):
     threshed_image = cv2.multiply(threshed_image, val_threshed, threshed_image)
     return threshed_image
 
-#returns [-1] if there is no object
+#returns empty list if there is no object
 #returns a list of ints where each int represents a color
 def coloredObjectTest(img, thresholds=False):
+    # Default parameter here because defining a dictionary in the function header is messy
     if (not thresholds):
         thresholds =  {'low_red':0, 'high_red':255,
                            'low_green':0, 'high_green':255,
@@ -123,11 +129,57 @@ def coloredObjectTest(img, thresholds=False):
                            'low_hue':0, 'high_hue':255,
                            'low_sat':119, 'high_sat':255,
                            'low_val':114, 'high_val':255 }
+
+    # Produce a binary image where all pixels that fall within the threshold ranges = 1, else 0
     threshed_img = threshImage(img, thresholds)
+
+    # Get the number of pixels with a value of 1 (white pixels) 
     non_zero = cv2.countNonZero(threshed_img)
     print non_zero
-    num_pixels_required = 2000
-    return non_zero > num_pixels_required
+
+    # This number determines what "passes" and what "fails" overall
+    total_num_pixels_required = 2000
+    # This determines how many pixels of an individual color are needed
+    single_hue_num_pixels_required = 1000
+
+    object_found = non_zero > total_num_pixels_required
+
+    # This holds a dictionary where all of the keys are the names of colors of localisation objects
+    colors_found = {'dark_green': False, 
+                        'light_green': False, 
+                        'red': False, 
+                        'white': False, 
+                        'yellow': False, 
+                        'black': False,
+                        'orange': False,
+                        'blue': False}
+
+
+
+    if (object_found):
+        # This line creates a hue-saturation-value image
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+        # get the H from HSV
+        hue_channel = cv2.split(hsv)[0]
+
+        # Mask the H channel using the result of SV thresholding
+        hue_channel = cv2.bitwise_and(threshed_img, hue_channel)
+
+        green_low = 53
+        green_high = 86
+        if cv2.countNonZero(cv2.inRange(hue_channel, green_low, green_high)) > single_hue_num_pixels_required:
+            colors_found["green"] = True
+        
+        yellow_low = 18
+        yellow_high = 23
+
+        #delete this
+        colors_found["a"] = True
+        #print colors_found
+        return colors_found
+
+    return colors_found
 
 '''
 
@@ -155,6 +207,8 @@ def colorDist(pix1, pix2):
     return math.sqrt((pix2[0] - pix1[0])**2 + (pix2[1] - pix1[1])**2 + (pix2[2] - pix1[2])**2)
 
 minMax = {'maxR':0, 'maxG':0, 'maxB':0, 'minR':0, 'minG':0, 'minB':0}
+
+# Display an image and allow user to click and set HSV slider values for thresholding
 def analyzeImage(img):
     global minMax
     winname = "analysis"
@@ -191,15 +245,7 @@ def analyzeImage(img):
             down_coord = (x,y)
 
     cv2.setMouseCallback(winname, onMouse, None)
-    '''
-    cv2.waitKey(0)
-    print minMax
-
-    return True
-    '''
-
-
-
+    
     
     thresholds =  {'low_red':0, 'high_red':255,
                        'low_green':0, 'high_green':255,
@@ -250,12 +296,90 @@ def analyzeImage(img):
     cv2.waitKey(0)
     print thresholds
 
+# Display several images and allow user to click and set HSV slider values for thresholding
+def analyzeImages(imgs):
+    global minMax
+    winname =  str(0)
+    for i, img in enumerate(imgs):
+        displayImage(img, str(i))
 
+    for i, img in enumerate(imgs):
+        cv2.moveWindow(str(i), i*50%1000, (i%8) * 100 % 800)
+    minMax['maxR'] = 0
+    minMax['maxG'] = 0
+    minMax['maxB'] = 0
+    minMax['minR'] = 255
+    minMax['minG'] = 255
+    minMax['minB'] = 255
+
+    def onMouse(event, x, y, flags, param):
+        global maxR, maxG, maxB, minR, minG, minB     
+        # clicked the left button
+        if event==cv2.EVENT_LBUTTONDOWN: 
+            print "x, y are", x, y, "    ",
+            (b,g,r) = img[y,x]
+            if b > minMax['maxB']:
+                minMax['maxB'] = b
+            elif b < minMax['minB']:
+                minMax['minB'] = b
+            if g > minMax['maxG']:
+                minMax['maxG'] = g
+            elif g < minMax['minG']:
+                minMax['minG'] = g
+            if r > minMax['maxR']:
+                minMax['maxR'] = r
+            elif r < minMax['minR']:
+                minMax['minR'] = r
+            print "r,g,b is", int(r), int(g), int(b), "    ",
+            (h,s,v) = img[y,x]
+            print "h,s,v is", int(h), int(s), int(v)
+            down_coord = (x,y)
+
+    #cv2.setMouseCallback(winname, onMouse, None)
+
+    thresholds =  {'low_red':0, 'high_red':255,
+                       'low_green':0, 'high_green':255,
+                       'low_blue':0, 'high_blue':255,
+                       'low_hue':0, 'high_hue':255,
+                       'low_sat':0, 'high_sat':255,
+                       'low_val':0, 'high_val':255 }
+
+    def change_slider(name, new_threshold, thresholds, imgs):
+        #change thresh
+        thresholds[name] = new_threshold
+
+        for i, img in enumerate(imgs):
+            #print i
+            #get threshed image and display it
+            print img.shape
+            threshed = threshImage(img, thresholds)
+            displayImage(threshed, str(i))
+            cv2.moveWindow(str(i), i*50%1000, (i%8) * 100 % 800)
+
+            #print the result of object test
+            coloredObjectTest(img, thresholds)
+
+    cv2.createTrackbar('low_hue', winname, thresholds['low_hue'], 255, 
+                          lambda x: change_slider('low_hue', x, thresholds, imgs))
+    cv2.createTrackbar('high_hue', winname, thresholds['high_hue'], 255, 
+                          lambda x: change_slider('high_hue', x, thresholds, imgs))
+    cv2.createTrackbar('low_sat', winname, thresholds['low_sat'], 255, 
+                          lambda x: change_slider('low_sat', x, thresholds, imgs))
+    cv2.createTrackbar('high_sat', winname, thresholds['high_sat'], 255, 
+                          lambda x: change_slider('high_sat', x, thresholds, imgs))
+    cv2.createTrackbar('low_val', winname, thresholds['low_val'], 255, 
+                          lambda x: change_slider('low_val', x, thresholds, imgs))
+    cv2.createTrackbar('high_val', winname, thresholds['high_val'], 255, 
+                          lambda x: change_slider('high_val', x, thresholds, imgs))
+
+    cv2.waitKey(0)
+    print thresholds
 '''
 
 SEGMENTATION
 
 '''
+# Unused, but would get the object regions from image
 def getObject(threshed_img):
     img = cv2.dilate(threshed_img)
 
@@ -524,8 +648,10 @@ def histogram2():
 
     #plt.show()
 
-#histogram2()
+#base image path
 imgpath = "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/"
+
+#images with colored object
 img = cv2.imread(imgpath + "img_1.jpg")
 img2 = cv2.imread(imgpath + "img_2.jpg")
 img3 = cv2.imread(imgpath + "img_3.jpg")
@@ -541,28 +667,40 @@ img12 = cv2.imread(imgpath + "img_9.jpg")
 img13 = cv2.imread(imgpath + "img_10.jpg")
 img14 = cv2.imread(imgpath + "img_8.jpg")
 img15 = cv2.imread(imgpath + "img_8.jpg")
+
+#images without colored object
 img16 = cv2.imread(imgpath + "img_25.jpg")
 img17 = cv2.imread(imgpath + "img_42.jpg")
 img18 = cv2.imread(imgpath + "img_41.jpg")
 img19 = cv2.imread(imgpath + "img_39.jpg")
 img20 = cv2.imread(imgpath + "img_012.jpg")
 img21 = cv2.imread(imgpath + "img_26.jpg")
+
 images_with_color = [img, img2, img3, img4, img5, img6, img7, img8, img9, img10, img11, img12, img13]
 images_without_color = [img16, img17, img18, img19, img20, img21]
 
+#localisation cut-out images (just colored objects, no background)
+imgpath = "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/localization"
+list_of_paths = os.listdir(imgpath)
+colored_objects = []
+for x in list_of_paths:
+    colored_objects.append(cv2.imread(imgpath + "/" + x))
+
+print colored_objects[0].shape
+analyzeImages(colored_objects)
+#tests
 assert(img.any())
 
 print "Testing True cases for coloredObjectTest()"
 for i, x in enumerate(images_with_color):
     #analyzeImage(x)
     print i
-    assert(coloredObjectTest(x))
+    assert(True in coloredObjectTest(x).values())
 
 print "Testing False cases for coloredObjectTest()"
 for i, x in enumerate(images_without_color):
     #analyzeImage(x)
     print i
-    assert(not coloredObjectTest(x))
+    assert(not (True in coloredObjectTest(x).values()))
 
-#contour()
 cv2.destroyAllWindows()
