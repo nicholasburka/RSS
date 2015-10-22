@@ -118,7 +118,7 @@ def threshImage(image, thresholds):
     threshed_image = cv2.multiply(threshed_image, val_threshed, threshed_image)
     return threshed_image
 
-
+# The below four functions test for "weird" objects whose colors require their own HSV profiles to be detected
 #returns True if there is a white object (made of lego, hopefully) in the room
 def whiteObjectTest(img, thresholds=False):
     if (not thresholds):
@@ -135,7 +135,7 @@ def whiteObjectTest(img, thresholds=False):
     non_zero = cv2.countNonZero(threshed_img)
 
     # This number determines what "passes" and what "fails" overall
-    num_pixels_required = 550
+    num_pixels_required = 500
 
     return non_zero > num_pixels_required
 
@@ -163,8 +163,8 @@ def baseTest(img, thresholds=False):
         thresholds =  {'low_red':0, 'high_red':255,
                            'low_green':0, 'high_green':255,
                            'low_blue':0, 'high_blue':255,
-                           'low_hue':0, 'high_hue':179,
-                           'low_sat':0, 'high_sat':9,
+                           'low_hue':79, 'high_hue':114,
+                           'low_sat':0, 'high_sat':45,
                            'low_val':67, 'high_val':107 }
     # Produce a binary image where all pixels that fall within the threshold ranges = 1, else 0
     threshed_img = threshImage(img, thresholds)
@@ -173,12 +173,31 @@ def baseTest(img, thresholds=False):
     non_zero = cv2.countNonZero(threshed_img)
 
     # This number determines what "passes" and what "fails" overall
-    num_pixels_required = 10000
+    num_pixels_required = 4000
 
     return non_zero > num_pixels_required
 
-#returns empty list if there is no object
-#returns a list of ints where each int represents a color
+def boxTest(img, thresholds=False):
+    if (not thresholds):
+        thresholds =  {'low_red':0, 'high_red':255,
+                           'low_green':0, 'high_green':255,
+                           'low_blue':0, 'high_blue':255,
+                           'low_hue':13, 'high_hue':15,
+                           'low_sat':130, 'high_sat':189,
+                           'low_val':0, 'high_val':112 }
+    # Produce a binary image where all pixels that fall within the threshold ranges = 1, else 0
+    threshed_img = threshImage(img, thresholds)
+
+    # Get the number of pixels with a value of 1 (white pixels) 
+    non_zero = cv2.countNonZero(threshed_img)
+
+    # This number determines what "passes" and what "fails" overall
+    num_pixels_required = 7000
+
+    return non_zero > num_pixels_required
+
+# Function that combines the results of a number of different color tests into a dictionary
+# that states which different objects are present in an image
 def coloredObjectTest(img, thresholds=False):
     # Default parameter here because defining a dictionary in the function header is messy
     if (not thresholds):
@@ -194,7 +213,7 @@ def coloredObjectTest(img, thresholds=False):
 
     # Get the number of pixels with a value of 1 (white pixels) 
     non_zero = cv2.countNonZero(threshed_img)
-    print non_zero
+    print "non_zero == %d" % non_zero
 
     # This number determines what "passes" and what "fails" overall
     total_num_pixels_required = 2000
@@ -205,18 +224,25 @@ def coloredObjectTest(img, thresholds=False):
 
     # This holds a dictionary where all of the keys are the names of colors of localisation objects
     colors_found = {'green': False,
-                        'red': False, 
                         'white': False, 
                         'yellow': False, 
                         'black': False,
                         'orange': False,
-                        'blue': False}
+                        'blue': False,
+                        'red': False, 
+                        'base': False,
+                        'box': False}
 
 
+    #Tests  for objects whose colors require detection by thresholding across all of HSV space, individually
     colors_found['black'] = blackObjectTest(img)
     colors_found['white'] = whiteObjectTest(img)
+    colors_found['base'] = baseTest(img)
+    colors_found['box'] = boxTest(img)
 
 
+    #Tests for bright colors that can be filtered out together using identical Saturation-Value thresholds
+    # meaning that all of these colors are only differentiated by Hue
     if (object_found):
         # This line creates a hue-saturation-value image
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -227,12 +253,14 @@ def coloredObjectTest(img, thresholds=False):
         # Mask the H channel using the result of SV thresholding
         hue_channel = cv2.bitwise_and(threshed_img, hue_channel)
 
+        #print "non_zero after mask == %d" % cv2.countNonZero(hue_channel)
+
         green_low = 36
         green_high = 86
         if cv2.countNonZero(cv2.inRange(hue_channel, green_low, green_high)) > single_hue_num_pixels_required:
             colors_found["green"] = True
         
-        yellow_low = 18
+        yellow_low = 19
         yellow_high = 23
         if cv2.countNonZero(cv2.inRange(hue_channel, yellow_low, yellow_high)) > single_hue_num_pixels_required:
             colors_found["yellow"] = True  
@@ -247,11 +275,10 @@ def coloredObjectTest(img, thresholds=False):
         if cv2.countNonZero(cv2.inRange(hue_channel, orange_low, orange_high)) > single_hue_num_pixels_required:
             colors_found["orange"] = True
 
-        #TOO MANY TRUES BEING RETURNED HERES
-        red_low = 0
+        red_hue_num_pixels_required = 300
+        red_low = 1
         red_high = 5
-        if cv2.countNonZero(cv2.inRange(hue_channel, red_low, red_high)) > single_hue_num_pixels_required:
-            print cv2.countNonZero(cv2.inRange(hue_channel, red_low, red_high))
+        if cv2.countNonZero(cv2.inRange(hue_channel, red_low, red_high)) > red_hue_num_pixels_required:
             colors_found["red"] = True
 
     print colors_found
@@ -723,6 +750,23 @@ def histogram2():
     plotHist(scene_hist, "scene")
 
     #plt.show()
+'''
+
+
+TESTS
+
+
+
+'''
+def assertImages(imgs, color_string):
+    print "\n"
+    print "Testing %s image group" % color_string
+    for i, x in enumerate(imgs):
+        print "Index %d" % i
+        test_dict = coloredObjectTest(x)
+        assert(test_dict[color_string])
+        test_dict[color_string] = False
+        assert(not (True in test_dict.values()))
 
 #base image path
 imgpath = "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/"
@@ -743,17 +787,17 @@ img12 = cv2.imread(imgpath + "img_9.jpg")
 img13 = cv2.imread(imgpath + "img_10.jpg")
 img14 = cv2.imread(imgpath + "img_8.jpg")
 img15 = cv2.imread(imgpath + "img_8.jpg")
+img20 = cv2.imread(imgpath + "img_012.jpg")
+img19 = cv2.imread(imgpath + "img_39.jpg")
 
 #images without colored object
 img16 = cv2.imread(imgpath + "img_25.jpg")
-img17 = cv2.imread(imgpath + "img_42.jpg")
+#img17 = cv2.imread(imgpath + "img_42.jpg")
 img18 = cv2.imread(imgpath + "img_41.jpg")
-img19 = cv2.imread(imgpath + "img_39.jpg")
-img20 = cv2.imread(imgpath + "img_012.jpg")
 img21 = cv2.imread(imgpath + "img_26.jpg")
 
 images_with_color = [img, img2, img3, img4, img5, img6, img7, img8, img9, img10, img11, img12, img13]
-images_without_color = [img16, img17, img18, img19, img20, img21]
+images_without_color = [img16, img18, img21]
 
 #localisation cut-out images (just colored objects, no background)
 colored_objects = []
@@ -767,15 +811,6 @@ list_of_paths = os.listdir(imgpath)
 for x in list_of_paths:
     colored_objects.append(cv2.imread(imgpath + "/" + x))
 
-print colored_objects[0].shape
-for i, x in enumerate(colored_objects):
-    print "index %d" % i
-    coloredObjectTest(x)
-analyzeImages(colored_objects)
-
-#tests
-assert(img.any())
-
 black_images = []
 black_images.append(cv2.imread(imgpath + "/" + "black.png"))
 black_images.append(cv2.imread(imgpath + "/" + "black_2.png"))
@@ -786,16 +821,91 @@ black_images.append(cv2.imread(imgpath + "/" + "img_011.jpg"))
 black_images.append(cv2.imread(imgpath + "/" + "img_39.jpg"))
 #analyzeImages(black_images)
 
+'''
+print colored_objects[0].shape
+for i, x in enumerate(colored_objects):
+    print "index %d" % i
+    coloredObjectTest(x)
+analyzeImages(colored_objects)
+'''
+#tests
+assert(img.any())
+
+
+imgpath = "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/localization/"
+
+
+red_images = []
+red_images.append(cv2.imread(imgpath + "red_1.png"))
+red_images.append(cv2.imread(imgpath + "red_2.png"))
+assertImages(red_images, "red")
+
+blue_images = []
+blue_images.append(cv2.imread(imgpath + "blue_1.png"))
+blue_images.append(cv2.imread(imgpath + "blue_2.png"))
+blue_images.append(cv2.imread(imgpath + "blue_3.png"))
+assertImages(blue_images, "blue")
+
+green_images = []
+green_images.append(cv2.imread(imgpath + "green.png"))
+green_images.append(cv2.imread(imgpath + "green_2.png"))
+green_images.append(cv2.imread(imgpath + "green_3.png"))
+green_images.append(cv2.imread(imgpath + "light_green.png"))
+green_images.append(cv2.imread(imgpath + "light_green_2.png"))
+assertImages(green_images, "green")
+
+yellow_images = []
+yellow_images.append(cv2.imread(imgpath + "yellow_1.png"))
+yellow_images.append(cv2.imread(imgpath + "yellow_2.png"))
+yellow_images.append(cv2.imread(imgpath + "yellow_3.png"))
+assertImages(yellow_images, "yellow")
+
+orange_images = []
+orange_images.append(cv2.imread(imgpath + "orange.png"))
+orange_images.append(cv2.imread(imgpath + "orange_2.png"))
+orange_images.append(cv2.imread(imgpath + "orange_3.png"))
+assertImages(orange_images, "orange")
+
+black_images = []
+black_images.append(cv2.imread(imgpath + "black.png"))
+black_images.append(cv2.imread(imgpath + "black_2.png"))
+black_images.append(cv2.imread(imgpath + "black_3.png"))
+assertImages(black_images, "black")
+
+white_images = []
+white_images.append(cv2.imread(imgpath + "white.png"))
+white_images.append(cv2.imread(imgpath + "white_2.png"))
+white_images.append(cv2.imread(imgpath + "white_3.png"))
+assertImages(white_images, "white")
+
+base_images = []
+base_images.append(cv2.imread(imgpath + "base.png"))
+base_images.append(cv2.imread(imgpath + "base_2.png"))
+base_images.append(img20)
+base_images.append(img19)
+assertImages(base_images, "base")
+
+box_images = []
+box_images.append(cv2.imread(imgpath + "box.png"))
+box_images.append(cv2.imread(imgpath + "box_2.png"))
+assertImages(box_images, "box")
+#analyzeImages(box_images + images_without_color)
+#analyzeImages(images_without_color)
+
+print "\n"
 print "Testing True cases for coloredObjectTest()"
 for i, x in enumerate(images_with_color):
     #analyzeImage(x)
     print i
     assert(True in coloredObjectTest(x).values())
+#analyzeImages(images_with_color)
 
+print "\n"
 print "Testing False cases for coloredObjectTest()"
 for i, x in enumerate(images_without_color):
     #analyzeImage(x)
     print i
     assert(not (True in coloredObjectTest(x).values()))
 
+print "All tests passed!"
 cv2.destroyAllWindows()
