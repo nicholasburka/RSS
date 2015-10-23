@@ -508,6 +508,15 @@ def decideRoom(color_dict):
                 dist += 1
         return dist
 
+    def dist_to_room(color_dict, room):
+        dist = 0
+        for i in color_dict.keys():
+            if (not (color_dict[i]) and room[i]):
+                dist += .5
+            if (color_dict[i] and not room[i]):
+                dist += 2.5
+        return dist
+
 
     roomA = {'green': False,
                         'white': False, 
@@ -572,7 +581,7 @@ def decideRoom(color_dict):
 
     #Iterate through rooms to find the closest one
     for current_index, room in enumerate(rooms):
-        current_dist = dist_between_dicts(room, color_dict)
+        current_dist = dist_to_room(color_dict, room)
         if current_dist < closest_dist:
             closest_index = current_index
             closest_dist = current_dist
