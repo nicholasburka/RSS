@@ -479,6 +479,120 @@ def analyzeImages(imgs):
     print thresholds
 '''
 
+
+LOCALIZATION LOGIC
+
+
+'''
+def combineDicts(dict1, dict2):
+    assert(len(dict1) == len(dict2))
+    return {k: (v or dict2[k]) for k, v in dict1.items()}
+
+#Tests
+d1 = {'1': True, '2': False, '3': False}
+d2 = {'1': False, '2': True, '3': False}
+d3 = combineDicts(d1, d2)
+assert(d3['1'])
+assert(d3['2'])
+assert(not d3['3'])
+
+
+# Given a dictionary of suspected color objects in the room, decide what room
+# If there's a tie, return that the test failed
+def decideRoom(color_dict):
+    def dist_between_dicts(dict1, dict2):
+        assert(len(dict1) == len(dict2))
+        dist = 0
+        for i in dict1.keys():
+            if (not (dict1[i] == dict2[i])):
+                dist += 1
+        return dist
+
+
+    roomA = {'green': False,
+                        'white': False, 
+                        'yellow': False, 
+                        'black': False,
+                        'orange': False,
+                        'blue': True,
+                        'red': False, 
+                        'base': True,
+                        'box': False}
+    roomB = {'green': True,
+                        'white': False, 
+                        'yellow': True, 
+                        'black': False,
+                        'orange': True,
+                        'blue': False,
+                        'red': False, 
+                        'base': False,
+                        'box': True}
+    roomC = {'green': True,
+                        'white': True, 
+                        'yellow': False, 
+                        'black': False,
+                        'orange': False,
+                        'blue': False,
+                        'red': False, 
+                        'base': False,
+                        'box': False}
+    roomD = {'green': False,
+                        'white': False, 
+                        'yellow': True, 
+                        'black': True,
+                        'orange': False,
+                        'blue': True,
+                        'red': False, 
+                        'base': False,
+                        'box': False}
+    roomE = {'green': False,
+                        'white': False, 
+                        'yellow': False, 
+                        'black': True,
+                        'orange': False,
+                        'blue': True,
+                        'red': True, 
+                        'base': False,
+                        'box': True}
+    roomF = {'green': True,
+                        'white': False, 
+                        'yellow': False, 
+                        'black': False,
+                        'orange': False,
+                        'blue': False,
+                        'red': False, 
+                        'base': True,
+                        'box': False}
+
+    rooms = [roomA, roomB, roomC, roomD, roomE, roomF]
+    closest_index = 0
+    closest_dist = 100
+    current_dist = 0
+    collision_dist = 100
+
+    #Iterate through rooms to find the closest one
+    for current_index, room in enumerate(rooms):
+        current_dist = dist_between_dicts(room, color_dict)
+        if current_dist < closest_dist:
+            closest_index = current_index
+            closest_dist = current_dist
+        #If two rooms are equally close, note this collision
+        elif current_dist == closest_dist:
+            collision_dist = current_dist
+
+    print "Distance to closest room is %d" % closest_dist
+
+    if (closest_dist == collision_dist):
+        print "Room decision failed, two room descriptions are equally close to input"
+        return -1 
+    else:
+        return closest_index
+
+
+
+
+'''
+
 SEGMENTATION
 
 '''
@@ -906,6 +1020,9 @@ for i, x in enumerate(images_without_color):
     #analyzeImage(x)
     print i
     assert(not (True in coloredObjectTest(x).values()))
+
+imgpath = "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/"
+print decideRoom(coloredObjectTest(cv2.imread(imgpath + "img_19.jpg")))
 
 print "All tests passed!"
 cv2.destroyAllWindows()
