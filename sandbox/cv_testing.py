@@ -5,16 +5,65 @@ import math
 import matplotlib.pyplot as plt
 import os
 plt.rcParams['figure.figsize'] = (15.0, 13.0)
-    
+'''
+CONSTANT TEMPLATES
+'''
+Color_Dict_Tpl = {'green': False,
+                    'green2' : False,
+                    'white': False,
+                    'yellow': False,
+                    'black': False,
+                    'orange': False,
+                    'blue': False,
+                    'red': False,
+                    'base': False,
+                    'box': False}
+'''
+class ColorAnalysis:
+    COLOR_DICT_TUPLE  = {'green': False,
+                            'green2' : False,
+                            'white': False,
+                            'yellow': False,
+                            'black': False,
+                            'orange': False,
+                            'blue': False,
+                            'red': False,
+                            'base': False,
+                            'box': False}
+    turn_angle = 45
+    def __init__(motors, camera):
+        self.Motors = motors
+        self.Camera = camera
+        self.angles_and_dicts = []
+    def scanEnvironment(self):
+        color_dict = Color_Dict_Tpl.copy()
+
+        # Subtract one so it doesn`t analyse the same image two times(first and last)
+        for x in range(0, (360 / turn_angle) - 1):
+            Camera.ClearCameraBuffer()
+            img = Camera.CaptureImage("high")
+            color_dict = coloredObjectTest(img)
+            #append a tuple where the first entry is the current angle from
+            #starting rotation, and second entry is the dict of colors present
+            self.angles_and_dicts.append((x*turn_angle, color_dict))
+            Motors.rotateRight(turn_angle)
+            print color_dict
+        # Turn once more to go back to starting position
+        Motors.rotateRight(turn_angle)
+        #an elegant list of (angle and dictionary) tuples
+        #combine them together if you want to guess the room
+        #(this function doesn't do that for you, just 1st lvl analysis)
+        return self.angles_and_dicts
+    def findColor(color_str):
+        col_angles = []
+        for tupl in self.angles_and_dicts:
+            if tupl[1][color_str]:
+                col_angles.append(tupl[0])
+        return col_angles
+'''
 '''
 
-
-
 COLOR THRESHOLDING
-
-
-
-
 
 '''
 def colorThresh(image):
@@ -117,7 +166,6 @@ def threshImage(image, thresholds):
     threshed_image = cv2.multiply(threshed_image, sat_threshed, threshed_image)
     threshed_image = cv2.multiply(threshed_image, val_threshed, threshed_image)
     return threshed_image
-
 # The below four functions test for "weird" objects whose colors require their own HSV profiles to be detected
 #returns True if there is a white object (made of lego, hopefully) in the room
 def whiteObjectTest(img, thresholds=False):
@@ -226,15 +274,7 @@ def coloredObjectTest(img, thresholds=False):
     object_found = non_zero > total_num_pixels_required
 
     # This holds a dictionary where all of the keys are the names of colors of localisation objects
-    colors_found = {'green': False,
-                        'white': False, 
-                        'yellow': False, 
-                        'black': False,
-                        'orange': False,
-                        'blue': False,
-                        'red': False, 
-                        'base': False,
-                        'box': False}
+    colors_found = Color_Dict_Tpl.copy()
 
 
     #Tests  for objects whose colors require detection by thresholding across all of HSV space, individually
@@ -344,61 +384,68 @@ def decideRoom(color_dict):
 
 
     roomA = {'green': False,
-                        'white': False, 
-                        'yellow': False, 
-                        'black': False,
-                        'orange': False,
-                        'blue': True,
-                        'red': False, 
-                        'base': True,
-                        'box': False}
+                'green2' : False,
+                'white': False, 
+                'yellow': False, 
+                'black': False,
+                'orange': False,
+                'blue': True,
+                'red': False, 
+                'base': True,
+                'box': False}
     roomB = {'green': True,
-                        'white': False, 
-                        'yellow': True, 
-                        'black': False,
-                        'orange': True,
-                        'blue': False,
-                        'red': False, 
-                        'base': False,
-                        'box': True}
+                'green2' : False,
+                'white': False, 
+                'yellow': True, 
+                'black': False,
+                'orange': True,
+                'blue': False,
+                'red': False, 
+                'base': False,
+                'box': True}
     roomC = {'green': True,
-                        'white': True, 
-                        'yellow': False, 
-                        'black': False,
-                        'orange': False,
-                        'blue': False,
-                        'red': False, 
-                        'base': False,
-                        'box': False}
+                'green2' : True,
+                'white': True, 
+                'yellow': False, 
+                'black': False,
+                'orange': False,
+                'blue': False,
+                'red': False, 
+                'base': False,
+                'box': False}
     roomD = {'green': False,
-                        'white': False, 
-                        'yellow': True, 
-                        'black': True,
-                        'orange': False,
-                        'blue': True,
-                        'red': False, 
-                        'base': False,
-                        'box': False}
+                'green2' : False,
+                'white': False, 
+                'yellow': True, 
+                'black': True,
+                'orange': False,
+                'blue': True,
+                'red': False, 
+                'base': False,
+                'box': False}
     roomE = {'green': False,
-                        'white': False, 
-                        'yellow': False, 
-                        'black': True,
-                        'orange': False,
-                        'blue': True,
-                        'red': True, 
-                        'base': False,
-                        'box': True}
+                'green2' : False,
+                'white': False, 
+                'yellow': False, 
+                'black': True,
+                'orange': False,
+                'blue': True,
+                'red': True, 
+                'base': False,
+                'box': True}
     roomF = {'green': True,
-                        'white': False, 
-                        'yellow': False, 
-                        'black': False,
-                        'orange': False,
-                        'blue': False,
-                        'red': False, 
-                        'base': True,
-                        'box': False}
+                'green2' : False,
+                'white': False, 
+                'yellow': False, 
+                'black': False,
+                'orange': False,
+                'blue': False,
+                'red': False, 
+                'base': True,
+                'box': False}
 
     rooms = [roomA, roomB, roomC, roomD, roomE, roomF]
+    roomsStr = ['A', 'B', 'C', 'D', 'E', 'F']
     closest_index = 0
     closest_dist = 100
     current_dist = 0
@@ -420,13 +467,80 @@ def decideRoom(color_dict):
 
     if (closest_dist == collision_dist):
         print "Room decision failed, two room descriptions are equally close to input"
-        print "Room %d and room %d" % (closest_index, collision_index)
+        print "Room ", roomsStr[closest_index], " and room ", roomsStr[collision_index]
         return -1 
     else:
-        return closest_index
+        return roomsStr[closest_index]
 
+def are2GreensInDict(angles_and_dicts):
+    count = 0
+    for tup in angles_and_dicts:
+        if (tup[1]['green']):
+            count += 1
+    return count > 1
 
+def colorAnalysis(Camera, Motors):
+        turn_angle = 45
+        angles_and_dicts = []
+        color_dict = Color_Dict_Tpl.copy()
 
+        # Subtract one so it doesn`t analyse the same image two times(first and last)
+        for x in range(0, (360 / turn_angle) - 1):
+            Camera.ClearCameraBuffer()
+            img = Camera.CaptureImage("high")
+            color_dict = coloredObjectTest(img)
+            #append a tuple where the first entry is the current angle from
+            #starting rotation, and second entry is the dict of colors present
+            angles_and_dicts.append((x*turn_angle, color_dict))
+            Motors.rotateRight(turn_angle)
+            print color_dict
+        # Turn once more to go back to starting position
+        Motors.rotateRight(turn_angle)
+        #an elegant list of (angle and dictionary) tuples
+        #combine them together if you want to guess the room
+        #(this function doesn't do that for you, just 1st lvl analysis)
+        return angles_and_dicts
+
+def guessRoomWithAnglesAndDicts(angles_and_dicts):
+    color_dict = Color_Dict_Tpl.copy()
+    for tup in angles_and_dicts:
+        color_dict = combineDicts(color_dict, tup[1])
+
+    if (are2GreensInDict(angles_and_dicts)):
+        color_dict['green2'] = True
+
+    # preprocessing with assumptions...
+    if (color_dict['yellow'] and color_dict['box']):
+        if (color_dict['blue']):
+            color_dict['box'] = False
+        elif (color_dict['red']):
+            color_dict['yellow'] = False
+        color_dict['base'] = False
+
+    print color_dict
+    guess = decideRoom(color_dict)
+    print "Robot thinks it is room ", guess
+    f = open("guess.txt", "w")
+    f.write(str(guess))
+    f.close()
+    return guess
+
+def guessRoom(Camera, Motors):
+    turn_angle = 30
+    color_dict = Color_Dict_Tpl.copy()
+
+    for x in range(0, 360 / turn_angle):
+        Camera.ClearCameraBuffer()
+        img = Camera.CaptureImage("high")
+        color_dict = combineDicts(color_dict, coloredObjectTest(img))
+        Motors.rotateLeft(turn_angle)
+        print color_dict
+    guess = decideRoom(color_dict)
+    print "Robot thinks it is room ", guess
+    f = open("guess.txt", "w")
+    f.write(str(guess))
+    f.close()
+    return guess
 
 '''
 
