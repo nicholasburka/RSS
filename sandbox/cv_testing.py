@@ -159,7 +159,7 @@ def blackObjectTest(img, thresholds=False):
     # This number determines what "passes" and what "fails" overall
     num_pixels_required = 4000
 
-    return non_zero > num_pixels_required
+    return non_zero > num_pixels_required, 1.0*non_zero/num_pixels_required
 
 def baseTest(img, thresholds=False):
     if (not thresholds):
@@ -178,7 +178,7 @@ def baseTest(img, thresholds=False):
     # This number determines what "passes" and what "fails" overall
     num_pixels_required = 5000
 
-    return non_zero > num_pixels_required
+    return non_zero > num_pixels_required, 1.0*non_zero/num_pixels_required
 
 def boxTest(img, thresholds=False):
     if (not thresholds):
@@ -195,7 +195,7 @@ def boxTest(img, thresholds=False):
     non_zero = cv2.countNonZero(threshed_img)
 
     # This number determines what "passes" and what "fails" overall
-    num_pixels_required = 7000
+    num_pixels_required = 9200
 
     return non_zero > num_pixels_required
 
@@ -238,9 +238,9 @@ def coloredObjectTest(img, thresholds=False):
 
 
     #Tests  for objects whose colors require detection by thresholding across all of HSV space, individually
-    colors_found['black'] = blackObjectTest(img)
+    colors_found['black'], num_black = blackObjectTest(img)
     colors_found['white'] = whiteObjectTest(img)
-    colors_found['base'] = baseTest(img)
+    colors_found['base'], num_base = baseTest(img)
     colors_found['box'] = boxTest(img)
 
 
@@ -265,7 +265,7 @@ def coloredObjectTest(img, thresholds=False):
         
         yellow_low = 20
         yellow_high = 23
-        if cv2.countNonZero(cv2.inRange(hue_channel, yellow_low, yellow_high)) > single_hue_num_pixels_required:
+        if cv2.countNonZero(cv2.inRange(hue_channel, yellow_low, yellow_high)) > 700:
             colors_found["yellow"] = True  
 
         blue_low = 96
@@ -278,14 +278,214 @@ def coloredObjectTest(img, thresholds=False):
         if cv2.countNonZero(cv2.inRange(hue_channel, orange_low, orange_high)) > single_hue_num_pixels_required:
             colors_found["orange"] = True
 
-        red_hue_num_pixels_required = 300
+        red_hue_num_pixels_required = 1500
         red_low = 1
         red_high = 5
         if cv2.countNonZero(cv2.inRange(hue_channel, red_low, red_high)) > red_hue_num_pixels_required:
             colors_found["red"] = True
 
+    
+    #using domain specific knowledge: black and base cannot coexist
+    if colors_found["black"] and colors_found["base"]:
+        if num_black > num_base:
+            colors_found["base"] = False
+        else:
+            colors_found["black"] = False
+
     print colors_found
     return colors_found
+
+'''
+
+
+LOCALIZATION LOGIC
+
+
+'''
+def combineDicts(dict1, dict2):
+    assert(len(dict1) == len(dict2))
+    return {k: (v or dict2[k]) for k, v in dict1.items()}
+
+#Tests
+d1 = {'1': True, '2': False, '3': False}
+d2 = {'1': False, '2': True, '3': False}
+d3 = combineDicts(d1, d2)
+assert(d3['1'])
+assert(d3['2'])
+assert(not d3['3'])
+
+
+# Given a dictionary of suspected color objects in the room, decide what room
+# If there's a tie, return that the test failed
+def decideRoom(color_dict):
+    def dist_between_dicts(dict1, dict2):
+        assert(len(dict1) == len(dict2))
+        dist = 0
+        for i in dict1.keys():
+            if (not (dict1[i] == dict2[i])):
+                dist += 1
+        return dist
+
+    def dist_to_room(color_dict, room):
+        dist = 0
+        for i in color_dict.keys():
+            if (not (color_dict[i]) and room[i]):
+                dist += .5
+            if (color_dict[i] and not room[i]):
+                dist += 2.5
+        return dist
+
+    def num_agreements(color_dict, room):
+        agreements_inv = 10
+        for i in color_dict.keys():
+            if (color_dict[i] and room[i]):
+                agreements_inv = agreements_inv - 1
+        return agreements_inv
+
+
+    roomA = {'green': False,
+                        'white': False, 
+                        'yellow': False, 
+                        'black': False,
+                        'orange': False,
+                        'blue': True,
+                        'red': False, 
+                        'base': True,
+                        'box': False}
+    roomB = {'green': True,
+                        'white': False, 
+                        'yellow': True, 
+                        'black': False,
+                        'orange': True,
+                        'blue': False,
+                        'red': False, 
+                        'base': False,
+                        'box': True}
+    roomC = {'green': True,
+                        'white': True, 
+                        'yellow': False, 
+                        'black': False,
+                        'orange': False,
+                        'blue': False,
+                        'red': False, 
+                        'base': False,
+                        'box': False}
+    roomD = {'green': False,
+                        'white': False, 
+                        'yellow': True, 
+                        'black': True,
+                        'orange': False,
+                        'blue': True,
+                        'red': False, 
+                        'base': False,
+                        'box': False}
+    roomE = {'green': False,
+                        'white': False, 
+                        'yellow': False, 
+                        'black': True,
+                        'orange': False,
+                        'blue': True,
+                        'red': True, 
+                        'base': False,
+                        'box': True}
+    roomF = {'green': True,
+                        'white': False, 
+                        'yellow': False, 
+                        'black': False,
+                        'orange': False,
+                        'blue': False,
+                        'red': False, 
+                        'base': True,
+                        'box': False}
+
+    rooms = [roomA, roomB, roomC, roomD, roomE, roomF]
+    closest_index = 0
+    closest_dist = 100
+    current_dist = 0
+    collision_dist = 100
+    collision_index = 0
+
+    #Iterate through rooms to find the closest one
+    for current_index, room in enumerate(rooms):
+        current_dist = num_agreements(color_dict, room)
+        if current_dist < closest_dist:
+            closest_index = current_index
+            closest_dist = current_dist
+        #If two rooms are equally close, note this collision
+        elif current_dist == closest_dist:
+            collision_dist = current_dist
+            collision_index = current_index
+
+    print "Distance to closest room is %d" % closest_dist
+
+    if (closest_dist == collision_dist):
+        print "Room decision failed, two room descriptions are equally close to input"
+        print "Room %d and room %d" % (closest_index, collision_index)
+        return -1 
+    else:
+        return closest_index
+
+
+
+
+'''
+
+SEGMENTATION
+
+'''
+# Unused, but would get the object regions from image
+def getObject(threshed_img):
+    img = cv2.dilate(threshed_img)
+
+
+'''
+
+
+
+CONTOUR/EDGE FINDING
+
+
+
+
+'''
+def contour():
+    imgpath = "/afs/inf.eac.uk/user/s15/s1579555/rss/img/img_1.jpg"
+    img = cv2.imread(imgpath)
+    img = cv2.resize(img, (600,600))
+    #print type(img)
+    #img = img.astype(np.uint8)
+    img2 = img.astype(np.uint8)
+    #print "\n"
+    #print img
+
+    #edge detection makes image a binary image from a colored image
+    #edges = cv2.Canny(img, 100, 200)
+    #get rid of uncolored pixels
+    #edges = cv2.bitwise_and(edges, colorThresh(img))
+    edges = colorThresh(img)
+
+    _, contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+
+    biggest = contours[0]
+    for contour in contours:
+        if cv2.contourArea(contour) > cv2.contourArea(biggest):
+            #print contour
+            biggest = contour
+            print cv2.contourArea(contour) 
+
+
+    #draw contours on img2, draw all of the contours in blue, with thickness 1
+    cv2.drawContours(img2,contours, -1, (255, 0, 0), 1)
+    cv2.drawContours(img2,[biggest], -1, (0, 255, 0), 1)
+
+
+
+    displayImage(edges, "image")
+
+    displayImage(img2, "image2")
+    #cv2.resizeWindow("image2", 600,600)
+
+    cv2.waitKey(0)
 
 '''
 
@@ -480,197 +680,6 @@ def analyzeImages(imgs):
 
     cv2.waitKey(0)
     print thresholds
-'''
-
-
-LOCALIZATION LOGIC
-
-
-'''
-def combineDicts(dict1, dict2):
-    assert(len(dict1) == len(dict2))
-    return {k: (v or dict2[k]) for k, v in dict1.items()}
-
-#Tests
-d1 = {'1': True, '2': False, '3': False}
-d2 = {'1': False, '2': True, '3': False}
-d3 = combineDicts(d1, d2)
-assert(d3['1'])
-assert(d3['2'])
-assert(not d3['3'])
-
-
-# Given a dictionary of suspected color objects in the room, decide what room
-# If there's a tie, return that the test failed
-def decideRoom(color_dict):
-    def dist_between_dicts(dict1, dict2):
-        assert(len(dict1) == len(dict2))
-        dist = 0
-        for i in dict1.keys():
-            if (not (dict1[i] == dict2[i])):
-                dist += 1
-        return dist
-
-    def dist_to_room(color_dict, room):
-        dist = 0
-        for i in color_dict.keys():
-            if (not (color_dict[i]) and room[i]):
-                dist += .5
-            if (color_dict[i] and not room[i]):
-                dist += 2.5
-        return dist
-
-    def num_agreements(color_dict, room):
-        agreements_inv = 10
-        for i in color_dict.keys():
-            if (color_dict[i] and room[i]):
-                agreements_inv = agreements_inv - 1
-        return agreements_inv
-
-
-    roomA = {'green': False,
-                        'white': False, 
-                        'yellow': False, 
-                        'black': False,
-                        'orange': False,
-                        'blue': True,
-                        'red': False, 
-                        'base': True,
-                        'box': False}
-    roomB = {'green': True,
-                        'white': False, 
-                        'yellow': True, 
-                        'black': False,
-                        'orange': True,
-                        'blue': False,
-                        'red': False, 
-                        'base': False,
-                        'box': True}
-    roomC = {'green': True,
-                        'white': True, 
-                        'yellow': False, 
-                        'black': False,
-                        'orange': False,
-                        'blue': False,
-                        'red': False, 
-                        'base': False,
-                        'box': False}
-    roomD = {'green': False,
-                        'white': False, 
-                        'yellow': True, 
-                        'black': True,
-                        'orange': False,
-                        'blue': True,
-                        'red': False, 
-                        'base': False,
-                        'box': False}
-    roomE = {'green': False,
-                        'white': False, 
-                        'yellow': False, 
-                        'black': True,
-                        'orange': False,
-                        'blue': True,
-                        'red': True, 
-                        'base': False,
-                        'box': True}
-    roomF = {'green': True,
-                        'white': False, 
-                        'yellow': False, 
-                        'black': False,
-                        'orange': False,
-                        'blue': False,
-                        'red': False, 
-                        'base': True,
-                        'box': False}
-
-    rooms = [roomA, roomB, roomC, roomD, roomE, roomF]
-    closest_index = 0
-    closest_dist = 100
-    current_dist = 0
-    collision_dist = 100
-    collision_index = 0
-
-    #Iterate through rooms to find the closest one
-    for current_index, room in enumerate(rooms):
-        current_dist = num_agreements(color_dict, room)
-        if current_dist < closest_dist:
-            closest_index = current_index
-            closest_dist = current_dist
-        #If two rooms are equally close, note this collision
-        elif current_dist == closest_dist:
-            collision_dist = current_dist
-            collision_index = current_index
-
-    print "Distance to closest room is %d" % closest_dist
-
-    if (closest_dist == collision_dist):
-        print "Room decision failed, two room descriptions are equally close to input"
-        print "Room %d and room %d" % (closest_index, collision_index)
-        return -1 
-    else:
-        return closest_index
-
-
-
-
-'''
-
-SEGMENTATION
-
-'''
-# Unused, but would get the object regions from image
-def getObject(threshed_img):
-    img = cv2.dilate(threshed_img)
-
-
-'''
-
-
-
-CONTOUR/EDGE FINDING
-
-
-
-
-'''
-def contour():
-    imgpath = "/afs/inf.eac.uk/user/s15/s1579555/rss/img/img_1.jpg"
-    img = cv2.imread(imgpath)
-    img = cv2.resize(img, (600,600))
-    #print type(img)
-    #img = img.astype(np.uint8)
-    img2 = img.astype(np.uint8)
-    #print "\n"
-    #print img
-
-    #edge detection makes image a binary image from a colored image
-    #edges = cv2.Canny(img, 100, 200)
-    #get rid of uncolored pixels
-    #edges = cv2.bitwise_and(edges, colorThresh(img))
-    edges = colorThresh(img)
-
-    _, contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-
-    biggest = contours[0]
-    for contour in contours:
-        if cv2.contourArea(contour) > cv2.contourArea(biggest):
-            #print contour
-            biggest = contour
-            print cv2.contourArea(contour) 
-
-
-    #draw contours on img2, draw all of the contours in blue, with thickness 1
-    cv2.drawContours(img2,contours, -1, (255, 0, 0), 1)
-    cv2.drawContours(img2,[biggest], -1, (0, 255, 0), 1)
-
-
-
-    displayImage(edges, "image")
-
-    displayImage(img2, "image2")
-    #cv2.resizeWindow("image2", 600,600)
-
-    cv2.waitKey(0)
 '''
 
 
@@ -967,7 +976,7 @@ analyzeImages(colored_objects)
 #tests
 assert(img.any())
 
-analyzeImage(cv2.imread(imgpath + "nick_img_2.png"))
+#analyzeImage(cv2.imread(imgpath + "nick_img_2.png"))
 imgpath = "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/localization/"
 
 
@@ -1033,7 +1042,7 @@ box_images.append(cv2.imread(imgpath + "box_2.png"))
 assertImages(box_images, "box")
 #analyzeImages(box_images + images_without_color)
 #analyzeImages(images_without_color)
-
+'''
 print "\n"
 print "Testing True cases for coloredObjectTest()"
 for i, x in enumerate(images_with_color):
@@ -1041,7 +1050,7 @@ for i, x in enumerate(images_with_color):
     print i
     assert(True in coloredObjectTest(x).values())
 #analyzeImages(images_with_color)
-
+'''
 print "\n"
 print "Testing False cases for coloredObjectTest()"
 for i, x in enumerate(images_without_color):
@@ -1049,9 +1058,8 @@ for i, x in enumerate(images_without_color):
     print i
     assert(not (True in coloredObjectTest(x).values()))
 
-imgpath = "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/"
-print decideRoom(coloredObjectTest(cv2.imread(imgpath + "img_19.jpg")))
-analyzeImage(cv2.imread(imgpath + "img_19.jpg"))
+imgpath = "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/sandbox/"
+analyzeImage(cv2.imread(imgpath + "nick_img_8.png"))
 
 print "All tests passed!"
 cv2.destroyAllWindows()
