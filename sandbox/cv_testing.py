@@ -19,47 +19,7 @@ Color_Dict_Tpl = {'green': False,
                     'base': False,
                     'box': False}
 
-class ColorAnalysis:
-    COLOR_DICT_TUPLE  = {'green': False,
-                            'green2' : False,
-                            'white': False,
-                            'yellow': False,
-                            'black': False,
-                            'orange': False,
-                            'blue': False,
-                            'red': False,
-                            'base': False,
-                            'box': False}
-    turn_angle = 45
-    def __init__(motors, camera):
-        self.Motors = motors
-        self.Camera = camera
-        self.angles_and_dicts = []
-    def scanEnvironment(self):
-        color_dict = Color_Dict_Tpl.copy()
 
-        # Subtract one so it doesn`t analyse the same image two times(first and last)
-        for x in range(0, (360 / turn_angle) - 1):
-            Camera.ClearCameraBuffer()
-            img = Camera.CaptureImage("high")
-            color_dict = coloredObjectTest(img)
-            #append a tuple where the first entry is the current angle from
-            #starting rotation, and second entry is the dict of colors present
-            self.angles_and_dicts.append((x*turn_angle, color_dict))
-            Motors.rotateRight(turn_angle)
-            print color_dict
-        # Turn once more to go back to starting position
-        Motors.rotateRight(turn_angle)
-        #an elegant list of (angle and dictionary) tuples
-        #combine them together if you want to guess the room
-        #(this function doesn't do that for you, just 1st lvl analysis)
-        return self.angles_and_dicts
-    def findColor(color_str):
-        col_angles = []
-        for tupl in self.angles_and_dicts:
-            if tupl[1][color_str]:
-                col_angles.append(tupl[0])
-        return col_angles
  
 '''
 
@@ -196,7 +156,7 @@ def whiteObjectTest(img, thresholds=False):
     # This number determines what "passes" and what "fails" overall
     num_pixels_required = 500
 
-    return non_zero > num_pixels_required
+    return non_zero > num_pixels_required, threshed_img
 
 def blackObjectTest(img, thresholds=False):
     if (not thresholds):
@@ -215,7 +175,7 @@ def blackObjectTest(img, thresholds=False):
     # This number determines what "passes" and what "fails" overall
     num_pixels_required = 4000
 
-    return non_zero > num_pixels_required, 1.0*non_zero/num_pixels_required
+    return non_zero > num_pixels_required, threshed_img#1.0*non_zero/num_pixels_required
 
 def baseTest(img, thresholds=False):
     if (not thresholds):
@@ -234,7 +194,7 @@ def baseTest(img, thresholds=False):
     # This number determines what "passes" and what "fails" overall
     num_pixels_required = 5000
 
-    return non_zero > num_pixels_required, 1.0*non_zero/num_pixels_required
+    return non_zero > num_pixels_required, threshed_img#1.0*non_zero/num_pixels_required
 
 def boxTest(img, thresholds=False):
     if (not thresholds):
@@ -253,7 +213,129 @@ def boxTest(img, thresholds=False):
     # This number determines what "passes" and what "fails" overall
     num_pixels_required = 9200
 
-    return non_zero > num_pixels_required
+    return non_zero > num_pixels_required, threshed_img
+
+#Threshold a color image and return the masked hue value
+def SVThresh(img, thresholds=False):
+    if (not thresholds):
+        thresholds =  {'low_red':0, 'high_red':255,
+                           'low_green':0, 'high_green':255,
+                           'low_blue':0, 'high_blue':255,
+                           'low_hue':0, 'high_hue':255,
+                           'low_sat':119, 'high_sat':255,
+                           'low_val':114, 'high_val':255 }
+    # Produce a binary image where all pixels that fall within the threshold ranges = 1, else 0
+    threshed_img = threshImage(img, thresholds)
+
+    # This line creates a hue-saturation-value image
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+    # get the H from HSV
+    hue_channel = cv2.split(hsv)[0]
+
+    # Mask the H channel using the result of SV thresholding
+    hue_channel = cv2.bitwise_and(threshed_img, hue_channel)
+
+    #single channel binary image
+    return hue_channel
+
+single_hue_num_pixels_required = 3000
+def greenTest(img, thresholds=False):
+    if (not thresholds):
+        thresholds =  {'low_red':0, 'high_red':255,
+                           'low_green':0, 'high_green':255,
+                           'low_blue':0, 'high_blue':255,
+                           'low_hue':36, 'high_hue':86,
+                           'low_sat':119, 'high_sat':255,
+                           'low_val':114, 'high_val':255 }
+    # Produce a binary image where all pixels that fall within the threshold ranges = 1, else 0
+    threshed_img = threshImage(img, thresholds)
+
+    # Get the number of pixels with a value of 1 (white pixels) 
+    non_zero = cv2.countNonZero(threshed_img)
+
+    # This number determines what "passes" and what "fails" overall
+    num_pixels_required = single_hue_num_pixels_required
+
+    return non_zero > num_pixels_required, threshed_img
+
+def yellowTest(img, thresholds=False):
+    if (not thresholds):
+        thresholds =  {'low_red':0, 'high_red':255,
+                           'low_green':0, 'high_green':255,
+                           'low_blue':0, 'high_blue':255,
+                           'low_hue':20, 'high_hue':23,
+                           'low_sat':119, 'high_sat':255,
+                           'low_val':114, 'high_val':255 }
+    # Produce a binary image where all pixels that fall within the threshold ranges = 1, else 0
+    threshed_img = threshImage(img, thresholds)
+
+    # Get the number of pixels with a value of 1 (white pixels) 
+    non_zero = cv2.countNonZero(threshed_img)
+
+    # This number determines what "passes" and what "fails" overall
+    num_pixels_required = 700
+
+    return non_zero > num_pixels_required, threshed_img
+
+def blueTest(img, thresholds=False):
+    if (not thresholds):
+        thresholds =  {'low_red':0, 'high_red':255,
+                           'low_green':0, 'high_green':255,
+                           'low_blue':0, 'high_blue':255,
+                           'low_hue':96, 'high_hue':128,
+                           'low_sat':119, 'high_sat':255,
+                           'low_val':114, 'high_val':255 }
+    # Produce a binary image where all pixels that fall within the threshold ranges = 1, else 0
+    threshed_img = threshImage(img, thresholds)
+
+    # Get the number of pixels with a value of 1 (white pixels) 
+    non_zero = cv2.countNonZero(threshed_img)
+
+    # This number determines what "passes" and what "fails" overall
+    num_pixels_required = single_hue_num_pixels_required
+
+    return non_zero > num_pixels_required, threshed_img
+
+def orangeTest(img, thresholds=False):
+    if (not thresholds):
+        thresholds =  {'low_red':0, 'high_red':255,
+                           'low_green':0, 'high_green':255,
+                           'low_blue':0, 'high_blue':255,
+                           'low_hue':7, 'high_hue':12,
+                           'low_sat':119, 'high_sat':255,
+                           'low_val':114, 'high_val':255 }
+    # Produce a binary image where all pixels that fall within the threshold ranges = 1, else 0
+    threshed_img = threshImage(img, thresholds)
+
+    # Get the number of pixels with a value of 1 (white pixels) 
+    non_zero = cv2.countNonZero(threshed_img)
+
+    # This number determines what "passes" and what "fails" overall
+    num_pixels_required = single_hue_num_pixels_required
+
+    return non_zero > num_pixels_required, threshed_img
+
+def redTest(img, thresholds=False):
+    if (not thresholds):
+        thresholds =  {'low_red':0, 'high_red':255,
+                           'low_green':0, 'high_green':255,
+                           'low_blue':0, 'high_blue':255,
+                           'low_hue':1, 'high_hue':5,
+                           'low_sat':119, 'high_sat':255,
+                           'low_val':114, 'high_val':255 }
+    # Produce a binary image where all pixels that fall within the threshold ranges = 1, else 0
+    threshed_img = threshImage(img, thresholds)
+
+    # Get the number of pixels with a value of 1 (white pixels) 
+    non_zero = cv2.countNonZero(threshed_img)
+
+    # This number determines what "passes" and what "fails" overall
+    num_pixels_required = 1500
+
+    return non_zero > num_pixels_required, threshed_img
+
+
 
 # Function that combines the results of a number of different color tests into a dictionary
 # that states which different objects are present in an image
@@ -286,10 +368,10 @@ def coloredObjectTest(img, thresholds=False):
 
 
     #Tests  for objects whose colors require detection by thresholding across all of HSV space, individually
-    colors_found['black'], num_black = blackObjectTest(img)
-    colors_found['white'] = whiteObjectTest(img)
-    colors_found['base'], num_base = baseTest(img)
-    colors_found['box'] = boxTest(img)
+    colors_found['black'], black_bimg = blackObjectTest(img)
+    colors_found['white'], white_bimg = whiteObjectTest(img)
+    colors_found['base'], base_bimg = baseTest(img)
+    colors_found['box'], box_bimg = boxTest(img)
 
 
     #Tests for bright colors that can be filtered out together using identical Saturation-Value thresholds
@@ -308,28 +390,33 @@ def coloredObjectTest(img, thresholds=False):
 
         green_low = 36
         green_high = 86
-        if cv2.countNonZero(cv2.inRange(hue_channel, green_low, green_high)) > single_hue_num_pixels_required:
+        green_bimg = cv2.inRange(hue_channel, green_low, green_high)
+        if cv2.countNonZero(green_bimg) > single_hue_num_pixels_required:
             colors_found["green"] = True
         
         yellow_low = 20
         yellow_high = 23
-        if cv2.countNonZero(cv2.inRange(hue_channel, yellow_low, yellow_high)) > 700:
+        yellow_bimg = cv2.inRange(hue_channel, yellow_low, yellow_high)
+        if cv2.countNonZero(yellow_bimg) > 700:
             colors_found["yellow"] = True  
 
         blue_low = 96
         blue_high = 128
-        if cv2.countNonZero(cv2.inRange(hue_channel, blue_low, blue_high)) > single_hue_num_pixels_required:
+        blue_bimg = cv2.inRange(hue_channel, blue_low, blue_high)
+        if cv2.countNonZero(blue_bimg) > single_hue_num_pixels_required:
             colors_found["blue"] = True    
 
         orange_low = 7
         orange_high = 12
-        if cv2.countNonZero(cv2.inRange(hue_channel, orange_low, orange_high)) > single_hue_num_pixels_required:
+        orange_bimg = cv2.inRange(hue_channel, orange_low, orange_high)
+        if cv2.countNonZero(orange_bimg) > single_hue_num_pixels_required:
             colors_found["orange"] = True
 
         red_hue_num_pixels_required = 1500
         red_low = 1
         red_high = 5
-        if cv2.countNonZero(cv2.inRange(hue_channel, red_low, red_high)) > red_hue_num_pixels_required:
+        red_bimg = cv2.inRange(hue_channel, red_low, red_high)
+        if cv2.countNonZero(red_bimg) > red_hue_num_pixels_required:
             colors_found["red"] = True
 
     
@@ -550,6 +637,232 @@ def guessRoom(Camera, Motors):
     f.close()
     return guess
 
+class ColorAnalysis:
+    def __init__(self, motors, camera):
+        self.Motors = motors
+        self.Camera = camera
+        self.angles_and_dicts = []
+        self.COLOR_DICT_TUPLE  = {'green': False,
+                                    'green2' : False,
+                                    'white': False,
+                                    'yellow': False,
+                                    'black': False,
+                                    'orange': False,
+                                    'blue': False,
+                                    'red': False,
+                                    'base': False,
+                                    'box': False}
+        self.turn_angle = 30
+    # Function that combines the results of a number of different color tests into a dictionary
+    # that states which different objects are present in an image
+    def coloredObjectTest(img, thresholds=False):
+        # Default parameter here because defining a dictionary in the function header is messy
+        if (not thresholds):
+            thresholds =  {'low_red':0, 'high_red':255,
+                               'low_green':0, 'high_green':255,
+                               'low_blue':0, 'high_blue':255,
+                               'low_hue':0, 'high_hue':255,
+                               'low_sat':119, 'high_sat':255,
+                               'low_val':114, 'high_val':255 }
+
+        # Produce a binary image where all pixels that fall within the threshold ranges = 1, else 0
+        threshed_img = threshImage(img, thresholds)
+
+        # Get the number of pixels with a value of 1 (white pixels) 
+        non_zero = cv2.countNonZero(threshed_img)
+        print "non_zero == %d" % non_zero
+
+        # This number determines what "passes" and what "fails" overall
+        total_num_pixels_required = 2000
+        # This determines how many pixels of an individual color are needed
+        single_hue_num_pixels_required = 3000
+
+        object_found = non_zero > total_num_pixels_required
+
+        # This holds a dictionary where all of the keys are the names of colors of localisation objects
+        colors_found = self.COLOR_DICT_TUPLE.copy()
+
+
+        #Tests  for objects whose colors require detection by thresholding across all of HSV space, individually
+        colors_found['black'], black_bimg = blackObjectTest(img)
+        colors_found['white'], white_bimg = whiteObjectTest(img)
+        colors_found['base'], base_bimg = baseTest(img)
+        colors_found['box'], box_bimg = boxTest(img)
+
+
+        #Tests for bright colors that can be filtered out together using identical Saturation-Value thresholds
+        # meaning that all of these colors are only differentiated by Hue
+        if (object_found):
+            # This line creates a hue-saturation-value image
+            hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+            # get the H from HSV
+            hue_channel = cv2.split(hsv)[0]
+
+            # Mask the H channel using the result of SV thresholding
+            hue_channel = cv2.bitwise_and(threshed_img, hue_channel)
+
+            #print "non_zero after mask == %d" % cv2.countNonZero(hue_channel)
+
+            green_low = 36
+            green_high = 86
+            green_bimg = cv2.inRange(hue_channel, green_low, green_high)
+            if cv2.countNonZero(green_bimg) > single_hue_num_pixels_required:
+                colors_found["green"] = True
+            
+            yellow_low = 20
+            yellow_high = 23
+            yellow_bimg = cv2.inRange(hue_channel, yellow_low, yellow_high)
+            if cv2.countNonZero(yellow_bimg) > 700:
+                colors_found["yellow"] = True  
+
+            blue_low = 96
+            blue_high = 128
+            blue_bimg = cv2.inRange(hue_channel, blue_low, blue_high)
+            if cv2.countNonZero(blue_bimg) > single_hue_num_pixels_required:
+                colors_found["blue"] = True    
+
+            orange_low = 7
+            orange_high = 12
+            orange_bimg = cv2.inRange(hue_channel, orange_low, orange_high)
+            if cv2.countNonZero(orange_bimg) > single_hue_num_pixels_required:
+                colors_found["orange"] = True
+
+            red_hue_num_pixels_required = 1500
+            red_low = 1
+            red_high = 5
+            red_bimg = cv2.inRange(hue_channel, red_low, red_high)
+            if cv2.countNonZero(red_bimg) > red_hue_num_pixels_required:
+                colors_found["red"] = True
+
+        
+        #using domain specific knowledge: black and base cannot coexist
+        if colors_found["black"] and colors_found["base"]:
+            if num_black > num_base:
+                colors_found["base"] = False
+            else:
+                colors_found["black"] = False
+
+        print colors_found
+        return colors_found
+
+    def scanEnvironment(self):
+        color_dict = self.COLOR_DICT_TUPLE.copy()
+
+        # Subtract one so it doesn`t analyse the same image two times(first and last)
+        for x in range(0, (360 / self.turn_angle) - 1):
+            self.Camera.ClearCameraBuffer()
+            img = self.Camera.CaptureImage("high")
+            color_dict = coloredObjectTest(img)
+            #append a tuple where the first entry is the current angle from
+            #starting rotation, and second entry is the dict of colors present
+            self.angles_and_dicts.append((x*self.turn_angle, color_dict))
+            self.Motors.rotateRight(self.turn_angle)
+            print color_dict
+        # Turn once more to go back to starting position
+        self.Motors.rotateRight(self.turn_angle)
+        #an elegant list of (angle and dictionary) tuples
+        #combine them together if you want to guess the room
+        #(this function doesn't do that for you, just 1st lvl analysis)
+        return self.angles_and_dicts
+    def findColor(self, color_str):
+        col_angles = []
+        for tupl in self.angles_and_dicts:
+            if tupl[1][color_str]:
+                col_angles.append(tupl[0])
+        return col_angles
+    def killWhite(self):
+        for tupl in self.angles_and_dicts:
+            tupl[1]["white"] = False
+
+    def findContour(self, img):
+        height, width = img.shape
+        img2 = np.empty((height, width, 1), dtype=np.uint8)
+
+        _, contours, hierarchy = cv2.findContours(img, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+
+        biggest = contours[0]
+        biggest_index = 0
+
+        for i, contour in enumerate(contours):
+            if cv2.contourArea(contour) > cv2.contourArea(biggest):
+                biggest = contour
+                biggest_index = 0
+
+        return biggest
+    def findCenter(self, contour):
+        M = cv2.moments(contour)
+        center_x = int(M['m10']/M['m00'])
+        center_y = int(M['m01']/M['m00'])
+        return center_x, center_y
+
+    def turnToColor(self, color_str):
+        ang_list = self.findColor(color_str)
+        if len(ang_list) < 1:
+            print "Color not present from scan."
+        else:
+            print "Looking for ", color_str
+            print "Turning to the right ", ang_list[0]
+            self.Motors.rotateRight(ang_list[0])
+            self.Camera.ClearCameraBuffer()
+            image = self.Camera.CaptureImage("high")
+            boole, binary_im = func_dict[color_str](image)
+            assert(boole)
+            binary_im = morphological_open(binary_im)
+            center_x, center_y = self.findCenter(self.findContour(binary_im))
+            print "Center of object is at ", center_x
+            print image.shape
+            print "Center of image is at ", image.shape[1]/2
+            '''
+            if (center_x > image.shape[1]/2):
+                self.Motors.rotateRight(1)
+            else:
+                self.Motors.rotateLeft(1)
+            '''
+            #loop until obj is close to center of view
+            self.turnLocalColor(color_str)
+    def turnLocalColor(self, color_str):
+        func_dict = {'green': greenTest,
+                        'green2' : greenTest,
+                        'white': whiteObjectTest,
+                        'yellow': yellowTest,
+                        'black': blackObjectTest,
+                        'orange': orangeTest,
+                        'blue': blueTest,
+                        'red': redTest,
+                        'base': baseTest,
+                        'box': boxTest}
+        self.Camera.ClearCameraBuffer()
+        res = "high"
+        image = self.Camera.CaptureImage(res)
+        if (res == "low"):
+            good_enough = 20
+        else:
+            good_enough = 50
+        boole, binary_im = func_dict[color_str](image)
+        binary_im = morphological_open(binary_im)
+        center_x, center_y = self.findCenter(self.findContour(binary_im))
+        print "Center of object is at ", center_x
+        print image.shape
+        print "Center of image is at ", image.shape[1]/2
+        while(abs(image.shape[1]/2 - center_x) > good_enough):
+            if (center_x > image.shape[1]/2):
+                self.Motors.nudgeRight()
+            else:
+                self.Motors.nudgeLeft()
+            self.Camera.ClearCameraBuffer()
+            image = self.Camera.CaptureImage(res)
+            boole, binary_im = func_dict[color_str](image)
+            binary_im = morphological_open(binary_im)
+            center_x, center_y = self.findCenter(self.findContour(binary_im))
+            print "Center of object is at ", center_x
+            print image.shape
+            print "Center of image is at ", image.shape[1]/2
+ 
+
+
+
+
 '''
 
 SEGMENTATION
@@ -634,6 +947,7 @@ def displayImage(img, name, height=600.0, width=600.0):
     cv2.namedWindow(name)
     cv2.moveWindow(name, 0,0)
     cv2.imshow(name, img)
+
     #cv2.resizeWindow(name, int(height), int(width))
 
     return "True"
