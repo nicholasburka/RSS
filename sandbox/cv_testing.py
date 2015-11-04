@@ -18,7 +18,7 @@ Color_Dict_Tpl = {'green': False,
                     'red': False,
                     'base': False,
                     'box': False}
-'''
+
 class ColorAnalysis:
     COLOR_DICT_TUPLE  = {'green': False,
                             'green2' : False,
@@ -60,7 +60,7 @@ class ColorAnalysis:
             if tupl[1][color_str]:
                 col_angles.append(tupl[0])
         return col_angles
-'''
+ 
 '''
 
 COLOR THRESHOLDING
@@ -166,6 +166,14 @@ def threshImage(image, thresholds):
     threshed_image = cv2.multiply(threshed_image, sat_threshed, threshed_image)
     threshed_image = cv2.multiply(threshed_image, val_threshed, threshed_image)
     return threshed_image
+
+def morphological_open(img):
+    kernel = np.ones((3,3),np.uint8)
+    
+    ret = cv2.dilate(img, kernel, iterations=10)
+    ret = cv2.erode(ret, kernel, iterations=10)
+    return ret
+
 # The below four functions test for "weird" objects whose colors require their own HSV profiles to be detected
 #returns True if there is a white object (made of lego, hopefully) in the room
 def whiteObjectTest(img, thresholds=False):
@@ -562,13 +570,15 @@ CONTOUR/EDGE FINDING
 
 
 '''
-def contour():
-    imgpath = "/afs/inf.eac.uk/user/s15/s1579555/rss/img/img_1.jpg"
-    img = cv2.imread(imgpath)
-    img = cv2.resize(img, (600,600))
+def contour(img=None):
+    if img == None:
+        imgpath = "/afs/inf.eac.uk/user/s15/s1579555/rss/img/img_1.jpg"
+        img = cv2.imread(imgpath)
+        img = cv2.resize(img, (600,600))
     #print type(img)
     #img = img.astype(np.uint8)
-    img2 = img.astype(np.uint8)
+    height, width = img.shape
+    img2 = np.empty((height, width, 1), dtype=np.uint8)
     #print "\n"
     #print img
 
@@ -576,30 +586,36 @@ def contour():
     #edges = cv2.Canny(img, 100, 200)
     #get rid of uncolored pixels
     #edges = cv2.bitwise_and(edges, colorThresh(img))
-    edges = colorThresh(img)
+    #edges = colorThresh(img)
 
-    _, contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-
+    _, contours, hierarchy = cv2.findContours(img, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+    print "Length of list of contours is ", len(contours)
     biggest = contours[0]
-    for contour in contours:
+    biggest_index = 0
+    for i, contour in enumerate(contours):
         if cv2.contourArea(contour) > cv2.contourArea(biggest):
             #print contour
             biggest = contour
+            biggest_index = 0
             print cv2.contourArea(contour) 
+
+    #some sort of check to see that the contour is closed
+    #assert(not hierarchy[biggest_index][2]== -1)
 
 
     #draw contours on img2, draw all of the contours in blue, with thickness 1
-    cv2.drawContours(img2,contours, -1, (255, 0, 0), 1)
+    #cv2.drawContours(img2,contours, -1, (255, 0, 0), 1)
     cv2.drawContours(img2,[biggest], -1, (0, 255, 0), 1)
 
 
 
-    displayImage(edges, "image")
+    displayImage(img, "image")
 
     displayImage(img2, "image2")
     #cv2.resizeWindow("image2", 600,600)
 
     cv2.waitKey(0)
+    return biggest
 
 '''
 
@@ -1173,7 +1189,32 @@ for i, x in enumerate(images_without_color):
     assert(not (True in coloredObjectTest(x).values()))
 
 imgpath = "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/sandbox/"
-analyzeImage(cv2.imread(imgpath + "nick_img_8.png"))
+im = cv2.imread(imgpath + "nick_img_8.png")
+#analyzeImage(im)
+yellow_low = 20
+yellow_high = 23
+thresholds =  {'low_red':0, 'high_red':255,
+                   'low_green':0, 'high_green':255,
+                   'low_blue':0, 'high_blue':255,
+                   'low_hue':yellow_low, 'high_hue':yellow_high,
+                   'low_sat':119, 'high_sat':255,
+                   'low_val':114, 'high_val':255 }
+binary_im = threshImage(im, thresholds)
+im = morphological_open(binary_im)
+points = cv2.findNonZero(binary_im)
 
+#analyzeImage(im)
+contour(im)
+
+thresholds =  {'low_red':0, 'high_red':255,
+                   'low_green':0, 'high_green':255,
+                   'low_blue':0, 'high_blue':255,
+                   'low_hue':0, 'high_hue':255,
+                   'low_sat':119, 'high_sat':255,
+                   'low_val':114, 'high_val':255 }
+for img in images_with_color:
+    binary = threshImage(img, thresholds)
+    binary = morphological_open(binary)
+    contour(binary)
 print "All tests passed!"
 cv2.destroyAllWindows()
