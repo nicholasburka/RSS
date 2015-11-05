@@ -127,11 +127,18 @@ def threshImage(image, thresholds):
     threshed_image = cv2.multiply(threshed_image, val_threshed, threshed_image)
     return threshed_image
 
-def morphological_open(img):
+def morphological_close(img):
     kernel = np.ones((3,3),np.uint8)
     
     ret = cv2.dilate(img, kernel, iterations=10)
     ret = cv2.erode(ret, kernel, iterations=10)
+    return ret
+
+def morphological_open(img):
+    kernel = np.ones((3,3),np.uint8)
+    num_it = 2
+    ret = cv2.erode(img, kernel, iterations=num_it)
+    ret = cv2.dilate(ret, kernel, iterations=num_it)
     return ret
 
 # The below four functions test for "weird" objects whose colors require their own HSV profiles to be detected
@@ -808,7 +815,7 @@ class ColorAnalysis:
             image = self.Camera.CaptureImage("high")
             boole, binary_im = func_dict[color_str](image)
             assert(boole)
-            binary_im = morphological_open(binary_im)
+            binary_im = morphological_close(binary_im)
             center_x, center_y = self.findCenter(self.findContour(binary_im))
             print "Center of object is at ", center_x
             print image.shape
@@ -840,7 +847,7 @@ class ColorAnalysis:
         else:
             good_enough = 50
         boole, binary_im = func_dict[color_str](image)
-        binary_im = morphological_open(binary_im)
+        binary_im = morphological_close(binary_im)
         center_x, center_y = self.findCenter(self.findContour(binary_im))
         print "Center of object is at ", center_x
         print image.shape
@@ -853,7 +860,7 @@ class ColorAnalysis:
             self.Camera.ClearCameraBuffer()
             image = self.Camera.CaptureImage(res)
             boole, binary_im = func_dict[color_str](image)
-            binary_im = morphological_open(binary_im)
+            binary_im = morphological_close(binary_im)
             center_x, center_y = self.findCenter(self.findContour(binary_im))
             print "Center of object is at ", center_x
             print image.shape
@@ -1133,10 +1140,12 @@ ORB TEST
 
 '''
 def orbTest():
-    res_path = "/afs/inf.eac.uk/user/s15/s1579555/rss/img/watching.png"
+    res_path = "/afs/inf.eac.uk/user/s15/s1579555/rss/img/resources/watching.png"
     resource = cv2.imread(res_path)
     scene_path = "/afs/inf.eac.uk/user/s15/s1579555/rss/img/5.jpg"
     scene = cv2.imread(scene_path)
+    cv2.namedWindow("image")
+    cv2.moveWindow("image", 0, 0)
 
     # Create ORB feature detector object
     orb = cv2.ORB_create(nfeatures = 1000) # Set the maximum number of returned 
@@ -1514,11 +1523,11 @@ thresholds =  {'low_red':0, 'high_red':255,
                    'low_sat':119, 'high_sat':255,
                    'low_val':114, 'high_val':255 }
 binary_im = threshImage(im, thresholds)
-im = morphological_open(binary_im)
+im = morphological_close(binary_im)
 points = cv2.findNonZero(binary_im)
 
 #analyzeImage(im)
-contour(im)
+#contour(im)
 
 thresholds =  {'low_red':0, 'high_red':255,
                    'low_green':0, 'high_green':255,
@@ -1526,9 +1535,31 @@ thresholds =  {'low_red':0, 'high_red':255,
                    'low_hue':0, 'high_hue':255,
                    'low_sat':119, 'high_sat':255,
                    'low_val':114, 'high_val':255 }
+'''
 for img in images_with_color:
     binary = threshImage(img, thresholds)
-    binary = morphological_open(binary)
-    contour(binary)
+    binary = morphological_close(binary)
+    contour(binary)0
+'''
+print "\n"
+imgpath = "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/"
+res_images = []
+for i in range(1, 10):
+    im = cv2.imread(imgpath + "img_000" + str(i) + ".png")
+    print "Testing im ", i
+    res_images.append(im)
+    coloredObjectTest(im)
+
+thresholds =  {'low_red':0, 'high_red':255,
+                   'low_green':0, 'high_green':255,
+                   'low_blue':0, 'high_blue':255,
+                   'low_hue':108, 'high_hue':113,
+                   'low_sat':27, 'high_sat':255,
+                   'low_val':36, 'high_val':165 }
+res_images = map(morphological_open, 
+                    map(lambda m: cv2.GaussianBlur(m, (3,3), 0), 
+                            map(lambda m: threshImage(m, thresholds), res_images)))#map(morphological_open, map(lambda m: threshImage(m, thresholds), res_images))
+analyzeImages(res_images + blue_images)
+#orbTest()
 print "All tests passed!"
 cv2.destroyAllWindows()
