@@ -17,7 +17,8 @@ Color_Dict_Tpl = {'green': False,
                     'blue': False,
                     'red': False,
                     'base': False,
-                    'box': False}
+                    'box': False,
+                    'resource': False}
 
 
  
@@ -136,10 +137,23 @@ def morphological_close(img):
 
 def morphological_open(img):
     kernel = np.ones((3,3),np.uint8)
-    num_it = 2
+    num_it = 5
     ret = cv2.erode(img, kernel, iterations=num_it)
     ret = cv2.dilate(ret, kernel, iterations=num_it)
     return ret
+
+def erode(img):
+    kernel = np.ones((3,3),np.uint8)
+    num_it = 2
+    ret = cv2.erode(img, kernel, iterations=num_it)
+    return ret
+
+
+def findContours(img):
+
+        _, contours, hierarchy = cv2.findContours(img, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+
+        return contours
 
 # The below four functions test for "weird" objects whose colors require their own HSV profiles to be detected
 #returns True if there is a white object (made of lego, hopefully) in the room
@@ -342,7 +356,37 @@ def redTest(img, thresholds=False):
 
     return non_zero > num_pixels_required, threshed_img
 
+def resourceTest(img, thresholds=False):
+    if (not thresholds):
+        thresholds =  {'low_red':0, 'high_red':255,
+                       'low_green':0, 'high_green':255,
+                       'low_blue':0, 'high_blue':255,
+                       'low_hue':109, 'high_hue':113,
+                       'low_sat':47, 'high_sat':124,
+                       'low_val':38, 'high_val':130 }
+    # Produce a binary image where all pixels that fall within the threshold ranges = 1, else 0
+    threshed_img = threshImage(img, thresholds)
+    # Close the image to inflate pixels because of such restrictive thresholds
+    threshed_img = cv2.GaussianBlur(threshed_img, (3,3), 0)
+    threshed_img = morphological_close(threshed_img)
+    # Make nice and binary
+    threshed_img = cv2.threshold(threshed_img, 1, 255, cv2.THRESH_BINARY)[1]
+    threshed_img = erode(threshed_img)
 
+    
+    contours = findContours(threshed_img.copy())
+    num_pixels_required = 80
+    bad_contours = filter(lambda c: cv2.contourArea(c) < num_pixels_required, contours)
+    good_contours = filter(lambda c: cv2.contourArea(c) > num_pixels_required)
+
+    mask = np.ones(threshed_img.shape[:2], dtype="uint8") * 255
+    for c in bad_contours:
+        cv2.drawContours(mask, [c], -1, 0, -1)
+    
+
+    threshed_img = cv2.bitwise_and(threshed_img, threshed_img, mask=mask)
+
+    return threshed_img, good_contours
 
 # Function that combines the results of a number of different color tests into a dictionary
 # that states which different objects are present in an image
@@ -1544,22 +1588,28 @@ for img in images_with_color:
 print "\n"
 imgpath = "/afs/inf.ed.ac.uk/user/s15/s1579555/rss/img/"
 res_images = []
+orig_images = []
 for i in range(1, 10):
     im = cv2.imread(imgpath + "img_000" + str(i) + ".png")
     print "Testing im ", i
     res_images.append(im)
+    orig_images.append(im)
     coloredObjectTest(im)
 
 thresholds =  {'low_red':0, 'high_red':255,
                    'low_green':0, 'high_green':255,
                    'low_blue':0, 'high_blue':255,
-                   'low_hue':108, 'high_hue':113,
-                   'low_sat':27, 'high_sat':255,
-                   'low_val':36, 'high_val':165 }
-res_images = map(morphological_open, 
-                    map(lambda m: cv2.GaussianBlur(m, (3,3), 0), 
-                            map(lambda m: threshImage(m, thresholds), res_images)))#map(morphological_open, map(lambda m: threshImage(m, thresholds), res_images))
-analyzeImages(res_images + blue_images)
+                   'low_hue':109, 'high_hue':113,
+                   'low_sat':47, 'high_sat':124,
+                   'low_val':38, 'high_val':130 }
+res_images = map(lambda m: cv2.threshold(m, 1, 255, cv2.THRESH_BINARY), (map(morphological_close, 
+                        map(lambda m: cv2.GaussianBlur(m, (3,3), 0), 
+                                map(lambda m: threshImage(m, thresholds), res_images)))))#map(morphological_open, map(lambda m: threshImage(m, thresholds), res_images))
+res_images = map(lambda m: m[1], res_images)
+#analyzeImages(orig_images + blue_images + images_with_color + images_without_color)
+imgs = map(resourceTest, blue_images)
+analyzeImages(imgs)
+analyzeImages(map(resourceTest, orig_images))
 #orbTest()
 print "All tests passed!"
 cv2.destroyAllWindows()
