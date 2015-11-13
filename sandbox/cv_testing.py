@@ -377,7 +377,7 @@ def resourceTest(img, thresholds=False):
     contours = findContours(threshed_img.copy())
     num_pixels_required = 80
     bad_contours = filter(lambda c: cv2.contourArea(c) < num_pixels_required, contours)
-    good_contours = filter(lambda c: cv2.contourArea(c) > num_pixels_required)
+    good_contours = filter(lambda c: cv2.contourArea(c) > num_pixels_required, contours)
 
     mask = np.ones(threshed_img.shape[:2], dtype="uint8") * 255
     for c in bad_contours:
@@ -387,6 +387,28 @@ def resourceTest(img, thresholds=False):
     threshed_img = cv2.bitwise_and(threshed_img, threshed_img, mask=mask)
 
     return threshed_img, good_contours
+
+def seeBoundingBox(img, bb_tup):
+    x,y,w,h = bb_tup
+    cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,0),2)
+
+def resourceBoundingBoxes(threshed_img):
+    threshed_img = threshed_img
+    kernel = np.ones((3,3),np.uint8)
+    num_it = 8
+    alt = cv2.dilate(threshed_img, kernel, iterations=num_it)
+
+    contours = findContours(alt)
+    num_pixels_required = 80
+    contours = filter(lambda c: cv2.contourArea(c) > num_pixels_required, contours)
+
+    bbs = []
+    for cnt in contours:
+      x,y,w,h = cv2.boundingRect(cnt)
+      bbs.append((x,y,w,h))
+      threshed_img = cv2.rectangle(threshed_img,(x,y),(x+w,y+h),(255,255,255),2)
+    return threshed_img, bbs
+
 
 # Function that combines the results of a number of different color tests into a dictionary
 # that states which different objects are present in an image
@@ -1607,9 +1629,9 @@ res_images = map(lambda m: cv2.threshold(m, 1, 255, cv2.THRESH_BINARY), (map(mor
                                 map(lambda m: threshImage(m, thresholds), res_images)))))#map(morphological_open, map(lambda m: threshImage(m, thresholds), res_images))
 res_images = map(lambda m: m[1], res_images)
 #analyzeImages(orig_images + blue_images + images_with_color + images_without_color)
-imgs = map(resourceTest, blue_images)
+imgs = map(lambda m: m[0], map(resourceTest, blue_images + red_images + white_images))
 analyzeImages(imgs)
-analyzeImages(map(resourceTest, orig_images))
+analyzeImages(map(lambda m: m[0], map (resourceBoundingBoxes, map(lambda m: m[0], map(resourceTest, orig_images)))))
 #orbTest()
 print "All tests passed!"
 cv2.destroyAllWindows()
