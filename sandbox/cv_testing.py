@@ -375,7 +375,7 @@ def resourceTest(img, thresholds=False):
 
     
     contours = findContours(threshed_img.copy())
-    num_pixels_required = 80
+    num_pixels_required = 500
     bad_contours = filter(lambda c: cv2.contourArea(c) < num_pixels_required, contours)
     good_contours = filter(lambda c: cv2.contourArea(c) > num_pixels_required, contours)
 
@@ -389,14 +389,16 @@ def resourceTest(img, thresholds=False):
     return threshed_img, good_contours
 
 def seeBoundingBox(img, bb_tup):
+    print bb_tup
     x,y,w,h = bb_tup
     cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,0),2)
 
 def resourceBoundingBoxes(threshed_img):
     threshed_img = threshed_img
     kernel = np.ones((3,3),np.uint8)
-    num_it = 8
+    num_it = 16
     alt = cv2.dilate(threshed_img, kernel, iterations=num_it)
+    increase_boundingbox = True
 
     contours = findContours(alt)
     num_pixels_required = 80
@@ -407,7 +409,15 @@ def resourceBoundingBoxes(threshed_img):
       x,y,w,h = cv2.boundingRect(cnt)
       bbs.append((x,y,w,h))
       threshed_img = cv2.rectangle(threshed_img,(x,y),(x+w,y+h),(255,255,255),2)
+    if increase_boundingbox:
+      for j, bb in enumerate(bbs):
+        bb = bbs[j]
+        y_inc = threshed_img.shape[0]/18
+        x_inc = threshed_img.shape[1]/18
+        bbs[j] = (bb[0] - x_inc/2, bb[1] - y_inc/2, bb[2] + x_inc, bb[3] + y_inc)
     return threshed_img, bbs
+
+
 
 
 # Function that combines the results of a number of different color tests into a dictionary
@@ -715,6 +725,7 @@ class ColorAnalysis:
         self.Motors = motors
         self.Camera = camera
         self.angles_and_dicts = []
+        self.angles_and_resources = []
         self.COLOR_DICT_TUPLE  = {'green': False,
                                     'green2' : False,
                                     'white': False,
@@ -931,6 +942,101 @@ class ColorAnalysis:
             print "Center of object is at ", center_x
             print image.shape
             print "Center of image is at ", image.shape[1]/2
+    def findResource(self):
+        color_dict = self.COLOR_DICT_TUPLE.copy()
+        self.angles_and_resources = []
+        counter = 0
+        found = False
+
+        # Subtract one so it doesn`t analyse the same image two times(first and last)
+        #for x in range(0, (360 / self.turn_angle) - 1):
+        while (not found and counter < 360/self.turn_angle):
+            self.Camera.ClearCameraBuffer()
+            img = self.Camera.CaptureImage("high")
+            #res_tuple is a tuple containing at 0 a binary img and at 1 a list of contours
+            res_tuple = resourceTest(img)
+
+            #ROOM HERE FOR TESTING IF THE RESOURCE IS THE CORRECT TYPE: IF SO, JUST START COLLECTING IT
+
+            #append a tuple where the first entry is the current angle from
+            #starting rotation, and second entry is the tuple containing the 
+            #threshed_img and contours from resource testing
+            self.angles_and_resources.append((counter*self.turn_angle, res_tuple))
+            found = len(res_tuple[1]) > 0
+            print "Checking if there's a resource at %d degrees, result is %r" % (counter*self.turn_angle, found) 
+            self.Motors.rotateRight(self.turn_angle)
+            counter = counter + 1
+        # Turn once more to go back to starting position
+        #self.Motors.rotateRight(self.turn_angle)
+        #an elegant list of (angle and dictionary) tuples
+        #combine them together if you want to guess the room
+        #(this function doesn't do that for you, just 1st lvl analysis)
+        return self.angles_and_resources
+    def turnLocalResource(self):
+        self.Camera.ClearCameraBuffer()
+        res = "high"
+        image = self.Camera.CaptureImage(res)
+        if (res == "low"):
+            good_enough = 20
+        else:
+            good_enough = 50
+        res_tup = resourceTest(image)
+        if (not res_tup[1]):
+            print "No resource present!"
+        else:
+            center_x, center_y = self.findCenter(res_tup[1][0])
+            print "Center of object is at ", center_x
+            print image.shape
+            print "Center of image is at ", image.shape[1]/2
+            while(abs(image.shape[1]/2 - center_x) > good_enough):
+                if (center_x > image.shape[1]/2):
+                    self.Motors.nudgeRight()
+                else:
+                    self.Motors.nudgeLeft()
+                self.Camera.ClearCameraBuffer()
+                image = self.Camera.CaptureImage(res)
+                res_tup = resourceTest(image)
+                if (not res_tup[1]):
+                    print "No resource present!"
+                else:
+                    center_x, center_y = self.findCenter(res_tup[1][0])
+                print "Center of object is at ", center_x
+                print image.shape
+                print "Center of image is at ", image.shape[1]/2
+    def approachResource(self):
+        self.Camera.ClearCameraBuffer()
+        res = "high"
+        image = self.Camera.CaptureImage(res)
+        if (res == "low"):
+            good_enough = 20
+        else:
+            good_enough = 30
+            x_good_enough = 50
+        res_tup = resourceTest(image)
+        if (not res_tup[1]):
+            print "No resource present!"
+        else:
+            center_x, center_y = self.findCenter(res_tup[1][0])
+            print "Center of object is at ", center_y
+            print image.shape
+            print "Bottom of image is at ", image.shape[0]
+            while(abs(image.shape[0] - center_y) > good_enough):
+                if (abs(image.shape[1]/2 - center_x) > x_good_enough):
+                    print "Resource not centered, centering."
+                    self.turnLocalResource()
+                self.Motors.moveForward(10)
+                self.Camera.ClearCameraBuffer()
+                image = self.Camera.CaptureImage(res)
+                res_tup = resourceTest(image)
+                if (not res_tup[1]):
+                    print "No resource present! Hopefully it has been captured. Breaking."
+                    break
+                else:
+                    center_x, center_y = self.findCenter(res_tup[1][0])
+                print "Center of object is at ", center_y
+                print image.shape
+                print "Bottom of image is at ", image.shape[0]
+     
  
 
 
@@ -1629,9 +1735,23 @@ res_images = map(lambda m: cv2.threshold(m, 1, 255, cv2.THRESH_BINARY), (map(mor
                                 map(lambda m: threshImage(m, thresholds), res_images)))))#map(morphological_open, map(lambda m: threshImage(m, thresholds), res_images))
 res_images = map(lambda m: m[1], res_images)
 #analyzeImages(orig_images + blue_images + images_with_color + images_without_color)
-imgs = map(lambda m: m[0], map(resourceTest, blue_images + red_images + white_images))
-analyzeImages(imgs)
-analyzeImages(map(lambda m: m[0], map (resourceBoundingBoxes, map(lambda m: m[0], map(resourceTest, orig_images)))))
+imgs = map(lambda m: m[1], map(resourceTest, blue_images + red_images + white_images + green_images + orange_images + images_without_color))
+#analyzeImages(imgs)
+bbs = map(lambda m: m[1], map (resourceBoundingBoxes, map(lambda m: m[0], map(resourceTest, orig_images)))) 
+cnts = map(lambda m: cv2.contourArea(m[1][0]), map(resourceTest, orig_images))
+print cnts
+
+'''
+for i, im in enumerate(orig_images):
+  for j, bb in enumerate(bbs[i]):
+    bb = bbs[i][j]
+    y_inc = im.shape[0]/18
+    x_inc = im.shape[1]/18
+    cv2.imwrite("bounded_resource_%d_%d_INCREASED.png" % (i, j), im[bb[1] - y_inc/2: bb[1] + bb[3] + y_inc/2, bb[0] - x_inc/2: bb[0] + bb[2] + x_inc/2])
+    #seeBoundingBox(im, bbs[i][j])
+    #img[y: y + h, x: x + w]
+  #analyzeImage(im)
 #orbTest()
+'''
 print "All tests passed!"
 cv2.destroyAllWindows()
