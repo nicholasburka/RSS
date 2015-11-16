@@ -408,7 +408,7 @@ def resourceBoundingBoxes(threshed_img):
     for cnt in contours:
       x,y,w,h = cv2.boundingRect(cnt)
       bbs.append((x,y,w,h))
-      threshed_img = cv2.rectangle(threshed_img,(x,y),(x+w,y+h),(255,255,255),2)
+      #threshed_img = cv2.rectangle(threshed_img,(x,y),(x+w,y+h),(255,255,255),2)
     if increase_boundingbox:
       for j, bb in enumerate(bbs):
         bb = bbs[j]
